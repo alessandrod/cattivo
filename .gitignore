@@ -1,0 +1,11 @@
+_trial_temp
+*.pyc
+*.swp
+*.swo
+*.o
+.deps
+Makefile
+**/Makefile
+Makefile.in
+**/Makefile.in
+
