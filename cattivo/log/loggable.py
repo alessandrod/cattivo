@@ -19,10 +19,41 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
+import sys
+import os
+import time
 from twisted.python import reflect
+from cattivo.log.log import safeprintf, getFormattedLevelName
 from cattivo.log import log
 
 class Loggable(object, log.Loggable):
     def __init__(self):
         self.logCategory = \
                 reflect.qual(reflect.getClass(self)).replace('__main__.', '')
+
+def stderrHandler(level, object, category, file, line, message):
+    """
+    A log handler that writes to stderr.
+
+    @type level:    string
+    @type object:   string (or None)
+    @type category: string
+    @type message:  string
+    """
+
+    o = ""
+    if object:
+        o = '"' + object + '"'
+
+    where = "(%s:%d)" % (file, line)
+
+    # level   pid     object   cat      time
+    # 5 + 1 + 7 + 1 + 32 + 1 + 17 + 1 + 15 == 80
+    safeprintf(sys.stderr, '%s [%5d] %-17s %-32s %-15s ',
+               getFormattedLevelName(level), os.getpid(), o, category,
+               time.strftime("%b %d %H:%M:%S"))
+    safeprintf(sys.stderr, '%-4s %s %s\n', "", message, where)
+
+    sys.stderr.flush()
+
+

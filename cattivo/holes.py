@@ -50,7 +50,8 @@ class HoleEntry(object):
         return cmp(left, other_left)
 
 class Holes(object):
-    def __init__(self):
+    def __init__(self, firewall):
+        self._firewall = firewall
         self._hole_entries =  {}
         self._hole_entries_by_expiration = []
         self._hole_expired_call = None
@@ -74,10 +75,7 @@ class Holes(object):
         if earliest is not None and new_earliest != earliest:
             self._rescheduleNextExpiration()
 
-        self._addNetfilter(hole_entry)
-
-    def _addNetfilter(self, hole_entry):
-        raise NotImplementedError()
+        self._addFirewall(hole_entry)
 
     def _rescheduleNextExpiration(self):
         if self._hole_expired_call is not None:
@@ -105,7 +103,7 @@ class Holes(object):
             need_resched = False
 
         self._hole_entries_by_expiration.remove(hole_entry)
-        self._removeNetfilter(hole_entry)
+        self._removeFirewall(hole_entry)
 
         if need_resched:
             self._rescheduleNextExpiration()
@@ -119,9 +117,6 @@ class Holes(object):
             return self._hole_entries[client_id].hole
         except KeyError:
             raise HoleError()
-
-    def _removeNetfilter(self, hole_entry): 
-        raise NotImplementedError()
     
     def getNumHoles(self):
         return len(self._hole_entries)
@@ -137,7 +132,10 @@ class Holes(object):
 
     def _holeExpired(self):
         hole_entry = self._hole_entries_by_expiration.pop(0)
-        self._holeExpiredNetfilter(hole_entry)
+        self._removeFirewall(hole_entry)
 
-    def _holeExpiredNetfiter(self, hole_entry):
-        raise NotImplementedError()
+    def _addFirewall(self, hole_entry):
+        self._firewall.addClient(hole_entry.hole.client_id)
+
+    def _removeFirewall(self, hole_entry): 
+        self._firewall.removeClient(hole_entry.hole.client_id)

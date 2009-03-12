@@ -21,21 +21,18 @@ from cattivo.utils import SECOND, MINUTE, HOUR
 
 class FakeHoles(Holes):
     def __init__(self):
-        Holes.__init__(self)
+        Holes.__init__(self, firewall=None)
         self.test_expired = []
         self.test_now = 0
 
     def now(self):
         return self.test_now
 
-    def _addNetfilter(self, hole_entry):
+    def _addFirewall(self, hole_entry):
         pass
 
-    def _removeNetfilter(self, hole_entry):
+    def _removeFirewall(self, hole_entry):
         pass
-
-    def _holeExpiredNetfilter(self, hole_entry):
-        pass 
 
 
 class TestHoleEntry(TestCase):
