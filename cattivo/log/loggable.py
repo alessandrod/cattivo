@@ -19,9 +19,10 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-from pitivi.log import log
+from twisted.python import reflect
+from cattivo.log import log
 
-class Loggable(log.Loggable):
+class Loggable(object, log.Loggable):
     def __init__(self):
-        if not hasattr(self, 'logCategory'):
-            self.logCategory = self.__class__.__name__.lower()
+        self.logCategory = \
+                reflect.qual(reflect.getClass(self)).replace('__main__.', '')
