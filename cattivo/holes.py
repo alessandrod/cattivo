@@ -110,6 +110,10 @@ class Holes(object):
         if need_resched:
             self._rescheduleNextExpiration()
 
+    def removeAll(self):
+        for hole_entry in self._hole_entries_by_expiration[::-1]:
+            self.remove(hole_entry.hole.client_id)
+
     def find(self, client_id):
         try:
             return self._hole_entries[client_id].hole
