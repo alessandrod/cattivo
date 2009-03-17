@@ -163,13 +163,17 @@ py_ipt_table_delete_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
   char *chain;
   struct ipt_entry *ip_entry;
   int ret = 0;
+  unsigned char match_mask[1024];
+
+  /* FIXME: figure out what this should be */
+  memset (&match_mask, 0, 1024);
 
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O!s", kwlist,
         &PyIPTEntryType, &entry, &chain))
     return NULL;
 
   ip_entry = py_ipt_entry_generate (entry);
-  //ret = iptc_append_entry(chain, ip_entry, &self->handle);
+  ret = iptc_delete_entry (chain, ip_entry, match_mask, &self->handle);
   free (ip_entry);
 
   if (!ret) {
@@ -186,6 +190,7 @@ py_ipt_table_commit (PyObject *obj, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[] = {NULL};
   PyIPTTableObject *self = (PyIPTTableObject *) obj;
+  int ret;
 
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "", kwlist))
     return NULL;
