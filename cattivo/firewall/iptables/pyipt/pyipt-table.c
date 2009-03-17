@@ -134,6 +134,34 @@ py_ipt_table_flush_entries (PyTypeObject *obj, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
+py_ipt_table_insert_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
+{
+  static char *kwlist[] = {"position", "entry", "chain", NULL};
+  PyIPTTableObject *self = (PyIPTTableObject *) obj;
+  PyObject *entry;
+  char *chain;
+  struct ipt_entry *ip_entry;
+  int ret;
+  int position;
+
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "iO!s", kwlist,
+        &position, &PyIPTEntryType, &entry, &chain))
+    return NULL;
+
+  ip_entry = py_ipt_entry_generate (entry);
+  ret = iptc_insert_entry(chain, ip_entry, position, &self->handle);
+  free (ip_entry);
+  
+  if (!ret) {
+    PyErr_SetFromErrno (PyIPTException);
+    return NULL;
+  } 
+
+  Py_INCREF (Py_None);
+  return Py_None;
+}
+
+static PyObject *
 py_ipt_table_append_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[] = {"entry", "chain", NULL};
@@ -151,7 +179,13 @@ py_ipt_table_append_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
   ret = iptc_append_entry(chain, ip_entry, &self->handle);
   free (ip_entry);
 
-	return PyBool_FromLong(ret);
+  if (!ret) {
+    PyErr_SetFromErrno (PyIPTException);
+    return NULL;
+  } 
+
+  Py_INCREF (Py_None);
+  return Py_None;
 }
 
 static PyObject *
@@ -213,8 +247,10 @@ static PyMethodDef py_ipt_table_methods[] = {
     {"flushEntries", (PyCFunction) py_ipt_table_flush_entries,
         METH_VARARGS | METH_KEYWORDS,
         "flush all the entries contained in a chain"},
-    {"appendEntry", (PyCFunction) py_ipt_table_append_entry,
+    {"insertEntry", (PyCFunction) py_ipt_table_insert_entry,
         METH_VARARGS | METH_KEYWORDS, "insert a new entry in a chain"},
+    {"appendEntry", (PyCFunction) py_ipt_table_append_entry,
+        METH_VARARGS | METH_KEYWORDS, "append a new entry in a chain"},
     {"deleteEntry", (PyCFunction) py_ipt_table_delete_entry,
         METH_VARARGS | METH_KEYWORDS, "delete an entry from a chain"},
     {"commit", (PyCFunction) py_ipt_table_commit,
