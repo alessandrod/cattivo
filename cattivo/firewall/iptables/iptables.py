@@ -18,49 +18,10 @@ from twisted.internet import defer
 
 from cattivo.firewall.iptables.pyipt import Entry, Match, Target, Table, \
         IPTablesError
+from cattivo.firewall.iptables.base import IPTablesFirewallBase
 
-class IptablesFirewall(object):
-    def __init__(self):
-        self.filter = Table("filter")
-        self.mangle = Table("mangle")
-
-    def initialize(self):
-        try:
-            self.ipt.deleteChain("cattivo", flush=True)
-        except IPTablesError:
-            pass
-
-        for table in (self.filter, self.mangle):
-            table.flushEntries("cattivo")
-            table.deleteChain("cattivo")
-            table.createChain("cattivo")
-
-        match = Match("tcp", ["--syn", "--destination-port", "80"])
-        target = Target("TPROXY", ["--to-ip", "127.0.0.1", "--to-port", "80")
-        entry = Entry()
-        entry.addMatch(match)
-        entry.setTarget(target)
-        self.mangle.appendEntry(entry, chain="PREROUTING") 
-        
-        self.filter.commit()
-        self.mangle.commit()
-
-        return defer.succeed(None)
-
-    def addClient(self, client_id):
-        match = Match("tcp")
-        target = Target("ACCEPT")
-        entry = Entry(source=client_id[0])
-        entry.addMatch(match)
-        entry.setTarget(target)
-        self.mangle.insertEntry(0, entry, chain="PREROUTING") 
-        self.mangle.commit()
-
-    def removeClient(self, client_id):
-        match = Match("tcp")
-        target = Target("ACCEPT")
-        entry = Entry(source=client_id[0])
-        entry.addMatch(match)
-        entry.setTarget(target)
-        self.mangle.deleteEntry(entry, chain="PREROUTING") 
-        self.mangle.commit()
+class IPTablesFirewall(IPTablesFirewallBase):
+    entryFactory = Entry
+    matchFactory = Match
+    targetFactory = Target
+    tableFactory = Table

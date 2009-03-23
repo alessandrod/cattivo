@@ -14,6 +14,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+import os
+
 mac = 0
 ip = 0
 
@@ -23,4 +25,7 @@ def new_client_id():
     i = ip
     mac += 1
     ip += 1
-    return (m, i)
+    return (str(m), i)
+
+def run_system_tests():
+    return os.environ.get("CATTIVO_TEST_SYSTEM", "0") == "1"
