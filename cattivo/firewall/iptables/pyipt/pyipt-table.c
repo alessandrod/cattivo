@@ -93,7 +93,7 @@ py_ipt_table_init (PyObject *oself, PyObject *args, PyObject *kwds)
 static PyObject *
 py_ipt_table_create_chain (PyObject *obj, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = {"name", NULL};
+  static char *kwlist[] = {"chain", NULL};
   char *chain_name;
   PyIPTTableObject *self = (PyIPTTableObject *) obj;
 

@@ -18,10 +18,11 @@ from distutils.core import setup, Extension
 
 # xtables
 xtables_dir = "cattivo/firewall/iptables/xtables/"
+xtables_extensions_dir = "cattivo/firewall/iptables/xtables/extensions/"
 xtables_sources = [xtables_dir + source
         for source in ["xtables.c", "extensions/libxt_tcp.c",
                 "extensions/libxt_state.c", "extensions/libxt_standard.c",
-                "extensions/libxt_TPROXY.c"]]
+                "extensions/libxt_TPROXY.c", "extensions/libxt_mark.c"]]
 xtables_define_macros = [("XTABLES_LIBDIR", "\"%s\"" % 
         (xtables_dir + "extensions/"))]
 
@@ -39,18 +40,6 @@ pyipt_sources = [pyipt_dir + source
 
 iptables_dir = "cattivo/firewall/iptables/"
 
-xtables_extensions_dir = "cattivo/firewall/iptables/xtables/extensions/"
-xtables_extensions = []
-"""
-xtables_extensions_define_macros = [("XTABLES_LIBDIR", "\"%s\"" % 
-        xtables_extensions_dir + "extensions")]
-for xtables_extension in ("libxt_state.c", "libxt_tcp.c"):
-        ext = Extension(name=xtables_extension.replace(".c", ""),
-                sources=[xtables_extensions_dir + xtables_extension],
-                include_dirs=[iptables_dir, libiptc_dir, xtables_dir])
-        xtables_extensions.append(ext)
-"""
-
 setup(name="cattivo",
     version="0.1",
     license="GPL",
@@ -64,6 +53,6 @@ setup(name="cattivo",
             include_dirs=[iptables_dir, libiptc_dir, xtables_dir,
                     xtables_extensions_dir, pyipt_dir],
             libraries=['dl'],
-            define_macros=xtables_define_macros)] + xtables_extensions,
+            define_macros=xtables_define_macros)],
             extra_link_args=["-E"]
 )

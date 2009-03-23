@@ -70,7 +70,12 @@ py_ipt_entry_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
     source = "0.0.0.0/0";
 
   xtables_ipparse_any (source, &self->source, &self->entry.ip.smsk, &n_source_addresses);
-  if (n_source_addresses != 1) {
+  if (n_source_addresses == 0) {
+    self->source = NULL;
+    PyErr_SetString (PyIPTException,
+        "invalid source address.");
+    goto error;
+  } else if (n_source_addresses > 1) {
     PyErr_SetString (PyIPTException,
         "multiple source addresses are not allowed.");
     goto error;
@@ -81,6 +86,11 @@ py_ipt_entry_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   xtables_ipparse_any (destination, &self->destination, &self->entry.ip.dmsk, &n_destination_addresses);
   if (n_destination_addresses != 1) {
+    self->destination = NULL;
+    PyErr_SetString (PyIPTException,
+        "invalid destination address.");
+    goto error;
+  } else if (n_destination_addresses != 1) {
     PyErr_SetString (PyIPTException,
         "multiple destination addresses are not allowed.");
     goto error;
@@ -104,18 +114,12 @@ py_ipt_entry_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   if (jump)
     self->jump = strdup (jump);
-  else
-    self->jump = NULL;
 
   if (in_interface)
     self->in_interface = strdup (in_interface);
-  else
-    self->in_interface = NULL;
 
   if (out_interface)
     self->out_interface = strdup (out_interface);
-  else
-    self->out_interface = NULL;
 
   self->matches = PyList_New (0);
 

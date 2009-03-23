@@ -17,17 +17,30 @@
 from optparse import OptionParser
 import os
 import sys
+try:
+    import simplejson as json
+except ImportError:
+    import json
 
 from twisted.internet import reactor, defer
+from twisted.python.reflect import namedAny
 from cattivo.firewall.firewall import Firewall
 from cattivo.http.bouncer import BouncerSite
-from cattivo.client_list import ClientList
 from cattivo.log.loggable import Loggable, stderrHandler
 from cattivo.log import log
 
+from socket import SOL_IP
+IP_TRANSPARENT = 19
+
 class Launcher(Loggable):
     def createClientList(self):
-        self.clientList = ClientList()
+        config = self.config["clientlist"]
+
+        clientlist_type_name = config["type"]
+        clientlist_type = namedAny(clientlist_type_name)
+
+        self.debug("creating client list")
+        self.clientList = clientlist_type(str(config["host"]), config["port"])
         dfr = self.clientList.initialize()
 
         return dfr
@@ -36,7 +49,9 @@ class Launcher(Loggable):
         return self.createFirewall()
 
     def createFirewall(self):
-        self.firewall = Firewall(self.options.iptables_chain, self.clientList)
+        self.debug("creating firewall")
+        self.firewall = Firewall(self.config["bouncer"]["bind-address"],
+                self.config["bouncer"]["port"], self.clientList)
         dfr = self.firewall.initialize()
         dfr.addCallback(self.firewallInitializeCb)
 
@@ -46,16 +61,20 @@ class Launcher(Loggable):
         return self.createBouncer()
 
     def createBouncer(self):
-        self.proxy_port = reactor.listenTCP(self.options.local_server_port,
-                BouncerSite(self.firewall, self.options.auth_server))
-    
+        self.debug("creating bouncer")
+        self.proxy_port = reactor.listenTCP(port=self.config["bouncer"]["port"],
+                factory=BouncerSite(self.firewall,
+                        str(self.config["authenticator"]["redirect"])),
+                        interface=str(self.config["bouncer"]["bind-address"]))
+
+        # set IP_TRANSPARENT for TPROXY to work
+        self.proxy_port.socket.setsockopt(SOL_IP, IP_TRANSPARENT, 1)
+
+        self.info("bouncer good to go")
+
     def create_option_parser(self):
         parser = OptionParser()
-        parser.add_option('--auth-server', type='string')
-        parser.add_option('--auth-server-port', type='int', default=80)
-        parser.add_option('--local-server', type='string')
-        parser.add_option('--local-server-port', type='int', default=80)
-        parser.add_option('--iptables-chain', type='string')
+        parser.add_option('--config-file', type='string', default="cattivo.conf")
         parser.add_option('--debug', type='string', action='append')
         parser.add_option('--debug-file', type='string')
 
@@ -73,12 +92,30 @@ class Launcher(Loggable):
         log.init('CATTIVO_DEBUG', enableColorOutput=True)
         log.removeLimitedLogHandler(log.stderrHandler)
         log.addLimitedLogHandler(stderrHandler)
+        log.setPackageScrubList('cattivo', 'twisted')
 
         if self.options.debug:
-            log.setDebug(",".join(self.options.debug))
+            debug = self.options.debug
+        elif self.config["debug"]["categories"]:
+            debug = self.config["debug"]["categories"]
+        else:
+            debug = ""
+
+        if not isinstance(debug, basestring):
+            debug = ",".join(debug)
 
         if self.options.debug_file:
-            log.outputToFiles(stderr=self.options.debug_file)
+            debug_file = self.options.debug_file
+        elif self.config["debug"]["file"]:
+            debug_file = self.config["debug"]["file"]
+        else:
+            debug_file = ""
+
+        if debug:
+            log.setDebug(debug)
+
+        if debug_file:
+            log.outputToFiles(stderr=debug_file)
 
         log.logTwisted()
         self.log('starting')
@@ -92,12 +129,19 @@ class Launcher(Loggable):
         reactor.stop()
         failure.raiseException()
     
+    def loadConfig(self, config_file):
+        config = json.load(file(config_file))
+        # FIXME: do sanity checks
+        return config
+
     def main(self):
         self.option_parser = self.create_option_parser()
         self.options, self.args = self.option_parser.parse_args()
 
-        if not self.options.auth_server:
-            self.option_parser.error('no auth server specified')
+        try:
+            self.config = self.loadConfig(self.options.config_file)
+        except IOError, e:
+            self.option_parser.error(str(e))
             return 1
 
         reactor.callWhenRunning(self.start)

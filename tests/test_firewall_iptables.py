@@ -18,6 +18,12 @@ from twisted.trial.unittest import TestCase
 
 from tests.common import new_client_id, run_system_tests
 from cattivo.firewall.iptables.base import IPTablesFirewallBase
+import cattivo.firewall.iptables.base
+
+class IPTablesError(Exception):
+    pass
+
+cattivo.firewall.iptables.baseIPTablesError = IPTablesError
 
 import os
 
@@ -141,7 +147,7 @@ class FakeIPTablesFirewall(IPTablesFirewallBase):
 
 class TestIPTablesFirewall(TestCase):
     def setUp(self):
-        self.firewall = FakeIPTablesFirewall()
+        self.firewall = FakeIPTablesFirewall('127.0.0.1', '8081')
 
     def testInitialize(self):
         mangle = self.firewall.mangle
@@ -162,23 +168,23 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(mangle._chains, ["cattivo"])
 
             # two entries are created at startup
-            self.failUnlessEqual(len(mangle._entries), 2)
+            self.failUnlessEqual(len(mangle._entries), 3)
 
             # default TPROXY entry
-            entry, chain = mangle._entries[0]
+            entry, chain = mangle._entries[1]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(len(entry.matches), 1)
             match = entry.matches[0]
             self.failUnlessEqual(match.name, "tcp")
             self.failUnlessEqual(match.arguments,
-                    ["--syn", "--destination-port", "80"])
+                    ["--destination-port", "80"])
             target = entry.target
             self.failUnlessEqual(target.name, "TPROXY")
             self.failUnlessEqual(target.arguments,
-                    ["--to-ip", "127.0.0.1", "--to-port", "80"])
+                    ["--on-ip", "127.0.0.1", "--on-port", "8081"])
 
             # main entry
-            entry, chain = mangle._entries[1]
+            entry, chain = mangle._entries[2]
             self.failUnlessEqual(chain, "PREROUTING")
             self.failUnlessEqual(len(entry.matches), 0)
             target = entry.target

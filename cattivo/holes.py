@@ -18,6 +18,8 @@ from twisted.internet import reactor
 from bisect import insort_right
 import time
 
+from cattivo.log.loggable import Loggable
+from cattivo.log.log import getFailureMessage
 from cattivo.utils import MINUTE
 
 DEFAULT_EXPIRATION = 60 * MINUTE
@@ -49,8 +51,9 @@ class HoleEntry(object):
 
         return cmp(left, other_left)
 
-class Holes(object):
+class Holes(Loggable):
     def __init__(self, firewall):
+        Loggable.__init__(self)
         self._firewall = firewall
         self._hole_entries =  {}
         self._hole_entries_by_expiration = []
@@ -72,7 +75,7 @@ class Holes(object):
         insort_right(self._hole_entries_by_expiration, hole_entry)
         new_earliest = self._hole_entries_by_expiration[0]
 
-        if earliest is not None and new_earliest != earliest:
+        if earliest is None or new_earliest != earliest:
             self._rescheduleNextExpiration()
 
         self._addFirewall(hole_entry)
@@ -86,10 +89,10 @@ class Holes(object):
             return
 
         hole_entry = self._hole_entries_by_expiration[0]
-        # use hole_entry.timestamp and not now() since now() could be a
-        # different time
-        timeout = hole_entry.timestamp + hole_entry.hole.expiration
+        timeout = hole_entry.timeLeft()
         self._hole_expired_call = reactor.callLater(timeout, self._holeExpired)
+
+        self.info("scheduled next expiration %d" % timeout)
 
     def remove(self, client_id): 
         try:
@@ -102,6 +105,8 @@ class Holes(object):
         else:
             need_resched = False
 
+        self.debug("removing hole entry for %s" %
+                str(hole_entry.hole.client_id))
         self._hole_entries_by_expiration.remove(hole_entry)
         self._removeFirewall(hole_entry)
 
@@ -131,11 +136,15 @@ class Holes(object):
         return time.time()
 
     def _holeExpired(self):
-        hole_entry = self._hole_entries_by_expiration.pop(0)
-        self._removeFirewall(hole_entry)
+        self._hole_expired_call = None
+        hole_entry = self._hole_entries_by_expiration[0]
+        self.info("hole entry expired %s" % str(hole_entry.hole.client_id))
+        self.remove(hole_entry.hole.client_id)
 
     def _addFirewall(self, hole_entry):
         self._firewall.addClient(hole_entry.hole.client_id)
 
-    def _removeFirewall(self, hole_entry): 
+    def _removeFirewall(self, hole_entry):
+        self.debug("remove firewall rule for %s" %
+                str(hole_entry.hole.client_id))
         self._firewall.removeClient(hole_entry.hole.client_id)

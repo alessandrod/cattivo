@@ -32,6 +32,14 @@
 #define XTABLES_VERSION "libxtables.so.@libxtables_vmajor@"
 #define XTABLES_VERSION_CODE @libxtables_vmajor@
 
+#ifndef NFPROTO_IPV4
+#define NFPROTO_IPV4 2
+#endif
+
+#ifndef NFPROTO_IPV6
+#define NFPROTO_IPV6 10
+#endif
+
 struct in_addr;
 
 /* Include file for additions: new matches and targets. */

@@ -16,24 +16,18 @@
 
 from twisted.internet import defer
 
-# FIXME: this is fugly
-def run_system_tests():
-    import os
-    return os.environ.get("CATTIVO_TEST_SYSTEM", "0") == "1"
-
-if not run_system_tests():
-    class IPTablesError(Exception):
-        pass
-else:
-    from cattivo.firewall.iptables.pyipt import IPTablesError
-
 class IPTablesFirewallBase(object):
     entryFactory = None
     matchFactory = None
     targetFactory = None
     tableFactory = None
 
-    def __init__(self):
+    def __init__(self, bouncer_address, bouncer_port, mark=1):
+        if bouncer_address == "0.0.0.0":
+            bouncer_address = "127.0.0.1"
+        self.bouncer_address = bouncer_address
+        self.bouncer_port = bouncer_port
+        self.mark = mark
         self.mangle = self.tableFactory("mangle")
 
     def initialize(self):
@@ -55,8 +49,12 @@ class IPTablesFirewallBase(object):
 
         self.mangle.createChain(chain="cattivo")
 
+        #entry = self._createMarkEntry()
+        #self.mangle.appendEntry(entry, chain="cattivo")
+
         entry = self._createDefaultTproxyEntry()
         self.mangle.appendEntry(entry, chain="cattivo")
+
         if main_entry is None:
             main_entry = self._createJumpInCattivoEntry()
         self.mangle.appendEntry(main_entry, chain="PREROUTING") 
@@ -82,9 +80,19 @@ class IPTablesFirewallBase(object):
 
         return entry
 
+    def _createMarkEntry(self):
+        target = self.targetFactory("MARK", ["--set-mark", str(self.mark)])
+        entry = self.entryFactory()
+        entry.setTarget(target)
+
+        return entry
+
     def _createDefaultTproxyEntry(self):
-        match = self.matchFactory("tcp", ["--syn", "--destination-port", "80"])
-        target = self.targetFactory("TPROXY", ["--to-ip", "127.0.0.1", "--to-port", "80"])
+        match = self.matchFactory("tcp", ["--destination-port", "80"])
+        target = self.targetFactory("TPROXY",
+                ["--on-ip", str(self.bouncer_address),
+                        "--on-port", str(self.bouncer_port),
+                        "--tproxy-mark", str(self.mark)])
         entry = self.entryFactory()
         entry.addMatch(match)
         entry.setTarget(target)

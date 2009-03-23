@@ -37,21 +37,29 @@ class GoodBoy(Resource):
         return good_html
 
 class BouncerResource(Resource, Loggable):
+    def __init__(self):
+        Resource.__init__(self)
+        Loggable.__init__(self)
+
     def getChild(self, path, request):
         # request.channel is HTTPChannel that is our protocol
-        client_addr = request.channel.transport.client
-        self.info("bouncer request from client_id %s" % str(client_addr))
+        src_address = request.channel.transport.client
+        dest = request.getRequestHostname()
+
+        self.info("bouncer request from client_id %s destination %s path %s" %
+                (str(src_address), dest, request.uri))
         
-        dfr = request.site.firewall.clientAllowed(client_addr)
-        dfr.addCallback(self._clientAllowedCb, client_addr[0], request.site.auth_server)
+        dfr = request.site.firewall.clientAllowed(src_address)
+        dfr.addCallback(self._clientAllowedCb, src_address[0], dest,
+                request.uri, request.site.auth_server)
 
         return DeferredResource(dfr)
 
-    def _clientAllowedCb(self, res, client_id, auth_server):
+    def _clientAllowedCb(self, res, client_id, destination, path, auth_server):
         self.info("client_id %s allowed %s" % (client_id, res))
 
         if res:
-            return GoodBoy()
+            return Redirect("http://%s/%s" % (destination, path))
         else:
             return Redirect(auth_server)
 

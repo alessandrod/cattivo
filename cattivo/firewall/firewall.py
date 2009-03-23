@@ -16,17 +16,16 @@
 
 from twisted.internet import defer
 
-from cattivo.firewall.iptables import IptablesFirewall 
+from cattivo.firewall.iptables.iptables import IPTablesFirewall 
 from cattivo.holes import Holes, Hole, HoleError
 from cattivo.log.loggable import Loggable
 from cattivo.log.log import getFailureMessage
 
 class Firewall(Loggable):
-    def __init__(self, chain, clientList):
+    def __init__(self, bouncer_address, bouncer_port, clientList):
         Loggable.__init__(self)
-        self.chain = chain
         self.clientList = clientList
-        self.systemFirewall = IptablesFirewall()
+        self.systemFirewall = IPTablesFirewall(bouncer_address, bouncer_port)
         self.holes = Holes(self.systemFirewall)
 
     def initialize(self):
@@ -49,8 +48,11 @@ class Firewall(Loggable):
         return defer.succeed(True)
 
     def clientAllowed(self, client_id):
+        self.debug("checking if %s is allowed" % str(client_id))
+
         try:
             hole = self.holes.find(client_id)
+            return defer.succeed(True)
         except HoleError:
             pass
         else:
