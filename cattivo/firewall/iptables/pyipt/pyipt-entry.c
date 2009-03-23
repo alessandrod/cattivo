@@ -240,6 +240,7 @@ py_ipt_entry_generate (PyObject *obj)
   }
 
 	entry = xtables_malloc(size + self->target->target->t->u.target_size);
+  memset(entry, 0, size + self->target->target->t->u.target_size);
 	*entry = self->entry;
   entry->ip.invflags = 0;
   entry->ip.src = *self->source;
@@ -294,7 +295,7 @@ PyTypeObject PyIPTEntryType = {
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
     "Entry object",           /* tp_doc */
     0,		               /* tp_traverse */
     0,		               /* tp_clear */

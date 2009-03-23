@@ -26,7 +26,7 @@ py_ipt_match_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   static char *kwlist[] = {"name", "arguments", NULL};
   PyIPTMatchObject *self = NULL;
   char *name;
-  PyObject *arguments;
+  PyObject *arguments = NULL;
   int argc = 0;
   char **argv = NULL;
   struct xtables_match *match;
@@ -35,11 +35,11 @@ py_ipt_match_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   int size;
   char c;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "zO", kwlist,
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "z|O", kwlist,
       &name, &arguments))
     goto error;
 
-  if (!PySequence_Check (arguments))
+  if (arguments && !PySequence_Check (arguments))
     goto error;
 
   self = (PyIPTMatchObject *) type->tp_alloc (type, 0);
@@ -63,51 +63,49 @@ py_ipt_match_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   if (match->init != NULL)
     match->init(match->m);
 
-  /* convert arguments to argv */
-  argc = PySequence_Size (arguments);
-  argv = malloc (sizeof (char *) * (argc + 1));
-  argv[0] = "pyipt";
-  for (i = 0; i < argc; ++i) {
-    PyObject *arg = PySequence_GetItem (arguments, i);
-    if (!PyString_Check (arg)) {
-      PyErr_SetString (PyExc_TypeError, "arguments must be a list of strings");
-      goto error;
-    }
-
-    argv[i+1] = PyString_AS_STRING (arg);
-  }
-
-  /* parse match specific opts */
-  /* FIXME: we don't pass entry (NULL) here */
-  while ((c = getopt_long (argc+1, argv, "", match->extra_opts, NULL)) != -1) {
-    switch (c) {
-      case -1:
-        break;
-
-      case ':':
-        PyErr_SetString (PyIPTException, "missing argument");
+  if (arguments) {
+    /* convert arguments to argv */
+    argc = PySequence_Size (arguments);
+    argv = malloc (sizeof (char *) * (argc + 1));
+    argv[0] = "pyipt";
+    for (i = 0; i < argc; ++i) {
+      PyObject *arg = PySequence_GetItem (arguments, i);
+      if (!PyString_Check (arg)) {
+        PyErr_SetString (PyExc_TypeError, "arguments must be a list of strings");
         goto error;
-        break;
+      }
 
-      default:
-        if (!match->parse(c, argv, invert,
-            &match->mflags, NULL, &match->m) || py_ipt_xt_get_error ()) {
-          if (py_ipt_xt_get_error ()) {
-            PyErr_SetString (PyIPTException, py_ipt_xt_get_error_message ());
-          } else {
-            PyErr_SetString (PyIPTException, "invalid match arguments");
-          }
-
-          goto error;
-        }
+      argv[i+1] = PyString_AS_STRING (arg);
     }
+
+    /* parse match specific opts */
+    /* FIXME: we don't pass entry (NULL) here */
+    while ((c = getopt_long (argc+1, argv, "", match->extra_opts, NULL)) != -1) {
+      switch (c) {
+        case -1:
+          break;
+
+        case ':':
+          PyErr_SetString (PyIPTException, "missing argument");
+          goto error;
+          break;
+
+        default:
+          if (!match->parse(c, argv, invert,
+              &match->mflags, NULL, &match->m) || py_ipt_xt_get_error ()) {
+            if (py_ipt_xt_get_error ()) {
+              PyErr_SetString (PyIPTException, py_ipt_xt_get_error_message ());
+            } else {
+              PyErr_SetString (PyIPTException, "invalid match arguments");
+            }
+
+            goto error;
+          }
+      }
+    }
+
+    free (argv);
   }
-
-  /* don't think this is actually needed, it's used by iptables.c to know when
-   * to stop parsing match arguments */
-  self->match->completed = 1;
-
-  free (argv);
 
   return (PyObject *) self;
 
@@ -161,7 +159,7 @@ PyTypeObject PyIPTMatchType = {
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
     "Match object",           /* tp_doc */
     0,		               /* tp_traverse */
     0,		               /* tp_clear */

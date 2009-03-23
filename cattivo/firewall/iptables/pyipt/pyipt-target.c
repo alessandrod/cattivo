@@ -19,14 +19,16 @@
 #include <getopt.h>
 
 #include "pyipt-target.h"
+#include "pyipt-table.h"
 
 static PyObject *
 py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-  static char *kwlist[] = {"name", "arguments", NULL};
+  static char *kwlist[] = {"name", "arguments", "table", NULL};
   PyIPTTargetObject *self = NULL;
-  char *name;
+  char *name, *chain = NULL;
   PyObject *arguments = NULL;
+  PyObject *table = NULL;
   int argc = 0;
   char **argv = NULL;
   struct xtables_target *target;
@@ -34,9 +36,10 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   int i;
   int size;
   char c;
+  struct iptc_handle *handle;
 
-  if (!PyArg_ParseTupleAndKeywords (args, kwds, "z|O", kwlist,
-      &name, &arguments))
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "z|OO!", kwlist,
+      &name, &arguments, &PyIPTTableType, &table))
     goto error;
 
   if (arguments && !PySequence_Check (arguments))
@@ -47,6 +50,15 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
     goto error;
 
   self->target = NULL;
+
+  if (table) {
+    handle = py_ipt_table_get_handle (table);
+    if (iptc_is_chain (name, handle)) {
+      chain = name;
+      name = "standard";
+    }
+  }
+
   /* FIXME: most likely i need to memcpy target here */
   target = xtables_find_target (name, XTF_TRY_LOAD);
   if (target == NULL) {
@@ -60,8 +72,14 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   target->t = xtables_calloc(1, size);
   target->t->u.target_size = size;
-  strcpy(target->t->u.user.name, name);
-  xtables_set_revision(target->t->u.user.name, target->revision);
+  
+  if (chain) { 
+    strcpy(target->t->u.user.name, chain);
+  } else {
+    strcpy(target->t->u.user.name, name);
+    xtables_set_revision(target->t->u.user.name, target->revision);
+  }
+  
   if (target->init != NULL)
     target->init(target->t); 
 
@@ -114,8 +132,6 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   return (PyObject *) self;
 
 error:
-  
-
   if (argv)
     free (argv);
 
@@ -165,7 +181,7 @@ PyTypeObject PyIPTTargetType = {
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
     "Target object",           /* tp_doc */
     0,		               /* tp_traverse */
     0,		               /* tp_clear */

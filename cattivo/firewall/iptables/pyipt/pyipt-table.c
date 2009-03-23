@@ -24,6 +24,25 @@ typedef struct {
     struct iptc_handle *handle;
 } PyIPTTableObject;
 
+struct iptc_handle *py_ipt_table_get_handle (PyObject *table)
+{
+  return ((PyIPTTableObject *) table)->handle;
+}
+
+static int maybe_create_handle(PyIPTTableObject *self)
+{
+  if (self->handle != NULL)
+    return 1;
+
+  self->handle = iptc_init (self->table);
+  if (self->handle == NULL) {
+    PyErr_SetFromErrno (PyIPTException);
+    return 0;
+  }
+
+  return 1;
+}
+
 static PyObject *
 py_ipt_table_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -40,15 +59,10 @@ py_ipt_table_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
   self->handle = NULL;
   self->table = NULL;
-
-  self->handle = iptc_init (table_name);
-  if (self->handle == NULL) {
-    PyErr_SetFromErrno (PyIPTException);
-    goto error;
-  }
-
   self->table = strdup (table_name);
-  
+  if (!maybe_create_handle (self))
+    goto error;
+
   return (PyObject *) self;
 
 error:
@@ -86,6 +100,9 @@ py_ipt_table_create_chain (PyObject *obj, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "s", kwlist, &chain_name))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   if (!iptc_create_chain (chain_name, &self->handle)) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
@@ -105,11 +122,14 @@ py_ipt_table_delete_chain (PyObject *obj, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "s", kwlist, &chain_name))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   if (!iptc_delete_chain (chain_name, &self->handle)) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
   }
-  
+
   Py_INCREF (Py_None);
   return Py_None;
 }
@@ -124,11 +144,14 @@ py_ipt_table_flush_entries (PyTypeObject *obj, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "s", kwlist, &chain_name))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   if (!iptc_flush_entries (chain_name, &self->handle)) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
   }
-  
+
   Py_INCREF (Py_None);
   return Py_None;
 }
@@ -148,14 +171,17 @@ py_ipt_table_insert_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
         &position, &PyIPTEntryType, &entry, &chain))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   ip_entry = py_ipt_entry_generate (entry);
   ret = iptc_insert_entry(chain, ip_entry, position, &self->handle);
   free (ip_entry);
-  
+
   if (!ret) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
-  } 
+  }
 
   Py_INCREF (Py_None);
   return Py_None;
@@ -175,6 +201,9 @@ py_ipt_table_append_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
         &PyIPTEntryType, &entry, &chain))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   ip_entry = py_ipt_entry_generate (entry);
   ret = iptc_append_entry(chain, ip_entry, &self->handle);
   free (ip_entry);
@@ -182,7 +211,7 @@ py_ipt_table_append_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
   if (!ret) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
-  } 
+  }
 
   Py_INCREF (Py_None);
   return Py_None;
@@ -206,6 +235,9 @@ py_ipt_table_delete_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
         &PyIPTEntryType, &entry, &chain))
     return NULL;
 
+  if (!maybe_create_handle (self))
+    return NULL;
+
   ip_entry = py_ipt_entry_generate (entry);
   ret = iptc_delete_entry (chain, ip_entry, match_mask, &self->handle);
   free (ip_entry);
@@ -213,7 +245,7 @@ py_ipt_table_delete_entry (PyTypeObject *obj, PyObject *args, PyObject *kwds)
   if (!ret) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
-  } 
+  }
 
   Py_INCREF (Py_None);
   return Py_None;
@@ -229,11 +261,16 @@ py_ipt_table_commit (PyObject *obj, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "", kwlist))
     return NULL;
 
+  if (self->handle == NULL) {
+    PyErr_SetString (PyIPTException, "nothing to commit");
+    return NULL;
+  }
+
   ret = iptc_commit (&self->handle);
   if (!ret) {
     PyErr_SetFromErrno (PyIPTException);
     return NULL;
-  } 
+  }
 
   Py_INCREF (Py_None);
   return Py_None;
@@ -279,7 +316,7 @@ PyTypeObject PyIPTTableType = {
     0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT,        /*tp_flags*/
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /*tp_flags*/
     "Table object",           /* tp_doc */
     0,		               /* tp_traverse */
     0,		               /* tp_clear */

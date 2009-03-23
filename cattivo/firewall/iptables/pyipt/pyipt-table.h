@@ -22,4 +22,6 @@
 
 extern PyTypeObject PyIPTTableType;
 
+struct iptc_handle *py_ipt_table_get_handle (PyObject *table);
+
 #endif /* PY_IPT_TABLE_H */
