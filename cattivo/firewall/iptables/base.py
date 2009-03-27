@@ -49,8 +49,11 @@ class IPTablesFirewallBase(object):
 
         self.mangle.createChain(chain="cattivo")
 
-        #entry = self._createMarkEntry()
-        #self.mangle.appendEntry(entry, chain="cattivo")
+        entry = self._createLocalTrafficEntry()
+        self.mangle.appendEntry(entry, chain="cattivo")
+
+        entry = self._createMarkEntry()
+        self.mangle.appendEntry(entry, chain="cattivo")
 
         entry = self._createDefaultTproxyEntry()
         self.mangle.appendEntry(entry, chain="cattivo")
@@ -64,7 +67,7 @@ class IPTablesFirewallBase(object):
 
     def addClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
-        self.mangle.insertEntry(0, entry, chain="cattivo") 
+        self.mangle.insertEntry(1, entry, chain="cattivo") 
         self.mangle.commit()
 
     def removeClient(self, client_id):
@@ -79,10 +82,21 @@ class IPTablesFirewallBase(object):
         entry.setTarget(target)
 
         return entry
+    
+    def _createLocalTrafficEntry(self):
+        target = self.targetFactory("ACCEPT")
+        entry = self.entryFactory(in_interface="lo")
+        entry.setTarget(target)
+
+        return entry
 
     def _createMarkEntry(self):
+        tcp_match = self.matchFactory("tcp")
+        socket_match = self.matchFactory("socket")
         target = self.targetFactory("MARK", ["--set-mark", str(self.mark)])
         entry = self.entryFactory()
+        entry.addMatch(tcp_match)
+        entry.addMatch(socket_match)
         entry.setTarget(target)
 
         return entry

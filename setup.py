@@ -22,7 +22,8 @@ xtables_extensions_dir = "cattivo/firewall/iptables/xtables/extensions/"
 xtables_sources = [xtables_dir + source
         for source in ["xtables.c", "extensions/libxt_tcp.c",
                 "extensions/libxt_state.c", "extensions/libxt_standard.c",
-                "extensions/libxt_TPROXY.c", "extensions/libxt_mark.c"]]
+                "extensions/libxt_TPROXY.c", "extensions/libxt_MARK.c",
+                "extensions/libxt_socket.c"]]
 xtables_define_macros = [("XTABLES_LIBDIR", "\"%s\"" % 
         (xtables_dir + "extensions/"))]
 
