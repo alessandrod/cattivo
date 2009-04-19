@@ -19,11 +19,14 @@ from twisted.trial.unittest import TestCase
 from tests.common import new_client_id, run_system_tests
 from cattivo.firewall.iptables.base import IPTablesFirewallBase
 import cattivo.firewall.iptables.base
+from cattivo.log import loggable
+
+loggable.init()
 
 class IPTablesError(Exception):
     pass
 
-cattivo.firewall.iptables.baseIPTablesError = IPTablesError
+cattivo.firewall.iptables.base.IPTablesError = IPTablesError
 
 import os
 
@@ -35,7 +38,7 @@ if run_system_tests():
     BaseTable = Table
 else:
     class BaseEntry(object):
-        def __init__(self, source):
+        def __init__(self, source, in_interface=None, out_interface=None):
             pass
 
         def setTarget(self, target):
@@ -47,11 +50,11 @@ else:
     class BaseMatch(object):
         def __init__(self, name, arguments=None):
             pass
-    
+
     class BaseTarget(object):
         def __init__(self, name, arguments=None, table=None):
             pass
-    
+
     class BaseTable(object):
         def __init__(self, name):
             pass
@@ -61,13 +64,13 @@ else:
 
         def insertEntry(self, *args):
             pass
-        
+
         def deleteEntry(self, *args):
             pass
 
         def flushEntries(self, *args):
             pass
-        
+
         def createChain(self, *args):
             pass
 
@@ -75,10 +78,12 @@ else:
             pass
 
 class TestEntry(BaseEntry):
-    def __init__(self, source=None):
+    def __init__(self, source=None, in_interface=None, out_interface=None):
         BaseEntry.__init__(self, source=source)
         self.source = source
         self.target = None
+        self.in_interface = in_interface
+        self.out_interface = out_interface
         self.matches = []
 
     def setTarget(self, target):
@@ -151,7 +156,7 @@ class TestIPTablesFirewall(TestCase):
 
     def testInitialize(self):
         mangle = self.firewall.mangle
-        
+
         def check_initialize(result):
             # check that the main entry is removed
             if not run_system_tests():
@@ -181,7 +186,8 @@ class TestIPTablesFirewall(TestCase):
             target = entry.target
             self.failUnlessEqual(target.name, "TPROXY")
             self.failUnlessEqual(target.arguments,
-                    ["--on-ip", "127.0.0.1", "--on-port", "8081"])
+                    ["--on-ip", "127.0.0.1", "--on-port", "8081",
+                    "--tproxy-mark", "1"])
 
             # main entry
             entry, chain = mangle._entries[2]
@@ -192,8 +198,8 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(target.table, mangle)
 
             self.failUnlessEqual(mangle.commits, 1)
-            
-        self.failUnlessEqual(mangle.commits, 0) 
+
+        self.failUnlessEqual(mangle.commits, 0)
 
         dfr = self.firewall.initialize()
         dfr.addCallback(check_initialize)
@@ -202,20 +208,20 @@ class TestIPTablesFirewall(TestCase):
 
     def testAddRemoveClient(self):
         mangle = self.firewall.mangle
-        
+
         def carry_on(result):
             client_id1 = new_client_id()
 
             self.failUnlessEqual(mangle.commits, 1)
             self.firewall.addClient(client_id1)
             self.failUnlessEqual(mangle.commits, 2)
-            entry, chain = mangle._entries[0]
+            entry, chain = mangle._entries[1]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(entry.source, client_id1[0])
             self.failUnlessEqual(entry.target.name, "ACCEPT")
             self.failUnlessEqual(len(entry.matches), 1)
             self.failUnlessEqual(entry.matches[0].name, "tcp")
-            
+
             self.firewall.removeClient(client_id1)
             self.failUnlessEqual(mangle.commits, 3)
             entry, chain = mangle._deleted_entries[-1]

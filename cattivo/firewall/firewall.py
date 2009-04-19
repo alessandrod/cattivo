@@ -16,7 +16,7 @@
 
 from twisted.internet import defer
 
-from cattivo.firewall.iptables.iptables import IPTablesFirewall 
+from cattivo.firewall.iptables.iptables import IPTablesFirewall
 from cattivo.holes import Holes, Hole, HoleError
 from cattivo.log.loggable import Loggable
 from cattivo.log.log import getFailureMessage
@@ -73,13 +73,13 @@ class Firewall(Loggable):
         expiration = client_status['expiration']
         time_left = expiration - (self.holes.now() - login_time)
         hole = Hole(client_id, time_left)
-        self.holes.add(hole) 
+        self.holes.add(hole)
 
     def _getClientCb(self, client_status):
         self._addClientHole(client_status)
 
         return defer.succeed(True)
-    
+
     def _getClientEb(self, failure):
         self.warning("get client failed: %s " % getFailureMessage(failure))
 

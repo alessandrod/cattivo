@@ -46,7 +46,7 @@ class TestHoleEntry(TestCase):
         self.failUnlessEqual(e1.timeLeft(),
                 self.timestamp + self.hole.expiration)
         self.holes.test_now = 1
-        self.failUnlessEqual(e1.timeLeft(), 
+        self.failUnlessEqual(e1.timeLeft(),
                 (self.timestamp + self.hole.expiration) - 1)
         self.holes.test_now = self.timestamp + self.hole.expiration
         self.failUnlessEqual(e1.timeLeft(), 0)
@@ -102,7 +102,7 @@ class TestHoles(TestCase):
         # check for existence
         tmp = self.holes.find(client_id1)
         self.failUnlessEqual(hole1.client_id, tmp.client_id)
-        
+
         # remove the hole
         self.holes.remove(client_id1)
         # can't remove twice
@@ -136,6 +136,7 @@ class TestHoles(TestCase):
 
         now = 1
         self.holes.test_now = now
+        self.holes._hole_expired_call.cancel()
         self.holes._holeExpired()
         next_expiration = self.holes.getNextExpiration()
         self.failUnlessEqual(next_expiration, hole1.expiration - now)
@@ -143,7 +144,32 @@ class TestHoles(TestCase):
         self.holes.remove(client_id1)
         next_expiration = self.holes.getNextExpiration()
         self.failUnlessEqual(next_expiration, hole2.expiration - now)
-        
+
         self.holes.remove(client_id2)
+        next_expiration = self.holes.getNextExpiration()
+        self.failUnlessIdentical(next_expiration, None)
+
+    def testExpirationTimeCatchUp(self):
+        client_id1 = new_client_id()
+        hole1 = Hole(client_id1, expiration=5 * SECOND)
+        self.holes.add(hole1)
+
+        client_id2 = new_client_id()
+        hole2 = Hole(client_id2, expiration=10 * SECOND)
+        self.holes.add(hole2)
+
+        client_id3 = new_client_id()
+        hole3 = Hole(client_id3, expiration=11 * SECOND)
+        self.holes.add(hole3)
+
+        now = 10
+        self.holes.test_now = now
+        self.holes._hole_expired_call.cancel()
+        self.holes._holeExpired()
+
+        next_expiration = self.holes.getNextExpiration()
+        self.failUnlessEqual(next_expiration, hole3.expiration - now)
+
+        self.holes.remove(client_id3)
         next_expiration = self.holes.getNextExpiration()
         self.failUnlessIdentical(next_expiration, None)

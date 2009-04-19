@@ -56,4 +56,41 @@ def stderrHandler(level, object, category, file, line, message):
 
     sys.stderr.flush()
 
+log_initialized = False
+def init(options=None, config=None):
+    global log_initialized
 
+    if log_initialized:
+        return
+
+    log.init('CATTIVO_DEBUG', enableColorOutput=True)
+    log.removeLimitedLogHandler(log.stderrHandler)
+    log.addLimitedLogHandler(stderrHandler)
+    log.setPackageScrubList('cattivo', 'twisted')
+
+    if options is not None and options.debug:
+        debug = options.debug
+    elif config is not None and config["debug"]["categories"]:
+        debug = config["debug"]["categories"]
+    else:
+        debug = ""
+
+    if not isinstance(debug, basestring):
+        debug = ",".join(debug)
+
+    if options is not None and options.debug_file:
+        debug_file = options.debug_file
+    elif config is not None and config["debug"]["file"]:
+        debug_file = config["debug"]["file"]
+    else:
+        debug_file = ""
+
+    if debug:
+        log.setDebug(debug)
+
+    if debug_file:
+        log.outputToFiles(stderr=debug_file)
+
+    log.logTwisted()
+
+    log_initialized = True

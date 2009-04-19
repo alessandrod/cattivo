@@ -19,10 +19,13 @@ from bisect import insort_right
 import time
 
 from cattivo.log.loggable import Loggable
+from cattivo.log import loggable
 from cattivo.log.log import getFailureMessage
 from cattivo.utils import MINUTE
 
 DEFAULT_EXPIRATION = 60 * MINUTE
+
+loggable.init()
 
 class HoleError(Exception):
     pass
@@ -72,29 +75,41 @@ class Holes(Loggable):
         except IndexError:
             earliest = None
 
+        self._addFirewall(hole_entry)
+
         insort_right(self._hole_entries_by_expiration, hole_entry)
         new_earliest = self._hole_entries_by_expiration[0]
 
         if earliest is None or new_earliest != earliest:
             self._rescheduleNextExpiration()
 
-        self._addFirewall(hole_entry)
-
     def _rescheduleNextExpiration(self):
         if self._hole_expired_call is not None:
             self._hole_expired_call.cancel()
             self._hole_expired_call = None
-        
-        if not self._hole_entries_by_expiration:
-            return
 
-        hole_entry = self._hole_entries_by_expiration[0]
-        timeout = hole_entry.timeLeft()
-        self._hole_expired_call = reactor.callLater(timeout, self._holeExpired)
+        while len(self._hole_entries_by_expiration):
+            hole_entry = self._hole_entries_by_expiration[0]
+            timeout = hole_entry.timeLeft()
+            if timeout <= 0:
+                self.info("catching up")
+                self._remove(hole_entry.hole.client_id)
+                continue
 
-        self.info("scheduled next expiration %d" % timeout)
+            self._hole_expired_call = self._callLater(timeout, self._holeExpired)
+            self.info("scheduled next expiration %d" % timeout)
+            break
 
-    def remove(self, client_id): 
+    def _callLater(self, timeout, callback, *args, **kw):
+        call = reactor.callLater(timeout, callback, *args, **kw)
+        return call
+
+    def remove(self, client_id):
+        need_resched = self._remove(client_id)
+        if need_resched:
+            self._rescheduleNextExpiration()
+
+    def _remove(self, client_id):
         try:
             hole_entry = self._hole_entries.pop(client_id)
         except KeyError:
@@ -110,8 +125,7 @@ class Holes(Loggable):
         self._hole_entries_by_expiration.remove(hole_entry)
         self._removeFirewall(hole_entry)
 
-        if need_resched:
-            self._rescheduleNextExpiration()
+        return need_resched
 
     def removeAll(self):
         for hole_entry in self._hole_entries_by_expiration[::-1]:
@@ -122,10 +136,10 @@ class Holes(Loggable):
             return self._hole_entries[client_id].hole
         except KeyError:
             raise HoleError()
-    
+
     def getNumHoles(self):
         return len(self._hole_entries)
-    
+
     def getNextExpiration(self):
         try:
             return self._hole_entries_by_expiration[0].timeLeft()
@@ -136,9 +150,10 @@ class Holes(Loggable):
         return time.time()
 
     def _holeExpired(self):
+        self.info("hole entry expired")
         self._hole_expired_call = None
         hole_entry = self._hole_entries_by_expiration[0]
-        self.info("hole entry expired %s" % str(hole_entry.hole.client_id))
+        self.info("%s" % str(hole_entry.hole.client_id))
         self.remove(hole_entry.hole.client_id)
 
     def _addFirewall(self, hole_entry):

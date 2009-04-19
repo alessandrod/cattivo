@@ -27,7 +27,9 @@ from twisted.python.reflect import namedAny
 from cattivo.firewall.firewall import Firewall
 from cattivo.http.bouncer import BouncerSite
 from cattivo.log.loggable import Loggable, stderrHandler
+from cattivo.log import loggable
 from cattivo.log import log
+import cattivo
 
 from socket import SOL_IP
 IP_TRANSPARENT = 19
@@ -79,7 +81,7 @@ class Launcher(Loggable):
         parser.add_option('--debug-file', type='string')
 
         return parser
-    
+
     def start(self):
         try:
             dfr = self.startUnchecked()
@@ -89,46 +91,17 @@ class Launcher(Loggable):
         dfr.addErrback(self.startError)
 
     def startUnchecked(self):
-        log.init('CATTIVO_DEBUG', enableColorOutput=True)
-        log.removeLimitedLogHandler(log.stderrHandler)
-        log.addLimitedLogHandler(stderrHandler)
-        log.setPackageScrubList('cattivo', 'twisted')
-
-        if self.options.debug:
-            debug = self.options.debug
-        elif self.config["debug"]["categories"]:
-            debug = self.config["debug"]["categories"]
-        else:
-            debug = ""
-
-        if not isinstance(debug, basestring):
-            debug = ",".join(debug)
-
-        if self.options.debug_file:
-            debug_file = self.options.debug_file
-        elif self.config["debug"]["file"]:
-            debug_file = self.config["debug"]["file"]
-        else:
-            debug_file = ""
-
-        if debug:
-            log.setDebug(debug)
-
-        if debug_file:
-            log.outputToFiles(stderr=debug_file)
-
-        log.logTwisted()
-        self.log('starting')
+        loggable.init()
 
         dfr = self.createClientList()
         dfr.addCallback(self.createClientListCb)
 
         return dfr
-    
+
     def startError(self, failure):
         reactor.stop()
         failure.raiseException()
-    
+
     def loadConfig(self, config_file):
         config = json.load(file(config_file))
         # FIXME: do sanity checks
@@ -139,7 +112,7 @@ class Launcher(Loggable):
         self.options, self.args = self.option_parser.parse_args()
 
         try:
-            self.config = self.loadConfig(self.options.config_file)
+            self.config = cattivo.config = self.loadConfig(self.options.config_file)
         except IOError, e:
             self.option_parser.error(str(e))
             return 1

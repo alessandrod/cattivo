@@ -16,6 +16,8 @@
 
 from twisted.internet import defer
 
+import cattivo
+
 class IPTablesFirewallBase(object):
     entryFactory = None
     matchFactory = None
@@ -41,7 +43,7 @@ class IPTablesFirewallBase(object):
             self.mangle.flushEntries(chain="cattivo")
         except IPTablesError, e:
             pass
-            
+
         try:
             self.mangle.deleteChain(chain="cattivo")
         except IPTablesError, e:
@@ -52,37 +54,41 @@ class IPTablesFirewallBase(object):
         entry = self._createLocalTrafficEntry()
         self.mangle.appendEntry(entry, chain="cattivo")
 
-        entry = self._createMarkEntry()
-        self.mangle.appendEntry(entry, chain="cattivo")
+        #entry = self._createMarkEntry()
+        #self.mangle.appendEntry(entry, chain="cattivo")
 
         entry = self._createDefaultTproxyEntry()
         self.mangle.appendEntry(entry, chain="cattivo")
 
         if main_entry is None:
             main_entry = self._createJumpInCattivoEntry()
-        self.mangle.appendEntry(main_entry, chain="PREROUTING") 
+        self.mangle.appendEntry(main_entry, chain="PREROUTING")
         self.mangle.commit()
 
         return defer.succeed(None)
 
     def addClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
-        self.mangle.insertEntry(1, entry, chain="cattivo") 
+        self.mangle.insertEntry(1, entry, chain="cattivo")
         self.mangle.commit()
 
     def removeClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
-        self.mangle.deleteEntry(entry, chain="cattivo") 
+        self.mangle.deleteEntry(entry, chain="cattivo")
         self.mangle.commit()
 
     # helper methods that can be mocked in tests
     def _createJumpInCattivoEntry(self):
-        entry = self.entryFactory()
+        conf = getattr(cattivo, "config", {}).get("firewall", {})
+        in_interface = conf.get("in-interface", None) or None
+        out_interface = conf.get("out-interface", None) or None
+        entry = self.entryFactory(in_interface=in_interface,
+                out_interface=out_interface)
         target = self.targetFactory("cattivo", table=self.mangle);
         entry.setTarget(target)
 
         return entry
-    
+
     def _createLocalTrafficEntry(self):
         target = self.targetFactory("ACCEPT")
         entry = self.entryFactory(in_interface="lo")
