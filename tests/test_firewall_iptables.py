@@ -197,7 +197,7 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(target.name, "cattivo")
             self.failUnlessEqual(target.table, mangle)
 
-            self.failUnlessEqual(mangle.commits, 1)
+            self.failUnlessEqual(mangle.commits, 2)
 
         self.failUnlessEqual(mangle.commits, 0)
 
@@ -212,9 +212,9 @@ class TestIPTablesFirewall(TestCase):
         def carry_on(result):
             client_id1 = new_client_id()
 
-            self.failUnlessEqual(mangle.commits, 1)
-            self.firewall.addClient(client_id1)
             self.failUnlessEqual(mangle.commits, 2)
+            self.firewall.addClient(client_id1)
+            self.failUnlessEqual(mangle.commits, 3)
             entry, chain = mangle._entries[1]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(entry.source, client_id1[0])
@@ -223,7 +223,7 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(entry.matches[0].name, "tcp")
 
             self.firewall.removeClient(client_id1)
-            self.failUnlessEqual(mangle.commits, 3)
+            self.failUnlessEqual(mangle.commits, 4)
             entry, chain = mangle._deleted_entries[-1]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(entry.source, client_id1[0])

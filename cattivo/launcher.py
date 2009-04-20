@@ -56,11 +56,20 @@ class Launcher(Loggable):
                 self.config["bouncer"]["port"], self.clientList)
         dfr = self.firewall.initialize()
         dfr.addCallback(self.firewallInitializeCb)
+        dfr.addErrback(self.firewallInitializeEb)
 
         return dfr
 
     def firewallInitializeCb(self, result):
+        reactor.addSystemEventTrigger("after", "shutdown", self.stopFirewall)
         return self.createBouncer()
+
+    def firewallInitializeEb(self, failure):
+        self.warning("error creating firewall %s" % log.getFailureMessage(failure))
+        reactor.stop()
+
+    def stopFirewall(self):
+        return self.firewall.clean()
 
     def createBouncer(self):
         self.debug("creating bouncer")
@@ -91,7 +100,7 @@ class Launcher(Loggable):
         dfr.addErrback(self.startError)
 
     def startUnchecked(self):
-        loggable.init()
+        loggable.init(self.options, self.config)
 
         dfr = self.createClientList()
         dfr.addCallback(self.createClientListCb)

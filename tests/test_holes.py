@@ -18,6 +18,9 @@ from twisted.trial.unittest import TestCase
 from tests.common import new_client_id
 from cattivo.holes import Hole, Holes, HoleEntry, HoleError, DEFAULT_EXPIRATION
 from cattivo.utils import SECOND, MINUTE, HOUR
+from cattivo.log import loggable
+
+loggable.init()
 
 class FakeHoles(Holes):
     def __init__(self):

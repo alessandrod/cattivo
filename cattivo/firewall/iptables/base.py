@@ -31,23 +31,9 @@ class IPTablesFirewallBase(object):
         self.bouncer_port = bouncer_port
         self.mark = mark
         self.mangle = self.tableFactory("mangle")
-
+    
     def initialize(self):
-        try:
-            main_entry = self._createJumpInCattivoEntry()
-            self.mangle.deleteEntry(main_entry, chain="PREROUTING")
-        except IPTablesError, e:
-            main_entry = None
-
-        try:
-            self.mangle.flushEntries(chain="cattivo")
-        except IPTablesError, e:
-            pass
-
-        try:
-            self.mangle.deleteChain(chain="cattivo")
-        except IPTablesError, e:
-            pass
+        self.clean()
 
         self.mangle.createChain(chain="cattivo")
 
@@ -60,11 +46,30 @@ class IPTablesFirewallBase(object):
         entry = self._createDefaultTproxyEntry()
         self.mangle.appendEntry(entry, chain="cattivo")
 
-        if main_entry is None:
-            main_entry = self._createJumpInCattivoEntry()
+        main_entry = self._createJumpInCattivoEntry()
         self.mangle.appendEntry(main_entry, chain="PREROUTING")
         self.mangle.commit()
 
+        return defer.succeed(None)
+
+    def clean(self):
+        try:
+            main_entry = self._createJumpInCattivoEntry()
+            self.mangle.deleteEntry(main_entry, chain="PREROUTING")
+        except IPTablesError, e:
+            pass
+
+        try:
+            self.mangle.flushEntries(chain="cattivo")
+        except IPTablesError, e:
+            pass
+
+        try:
+            self.mangle.deleteChain(chain="cattivo")
+        except IPTablesError, e:
+            pass
+
+        self.mangle.commit()
         return defer.succeed(None)
 
     def addClient(self, client_id):
@@ -110,9 +115,10 @@ class IPTablesFirewallBase(object):
     def _createDefaultTproxyEntry(self):
         match = self.matchFactory("tcp", ["--destination-port", "80"])
         target = self.targetFactory("TPROXY",
-                ["--on-ip", str(self.bouncer_address),
+                ["--on-ipASD", str(self.bouncer_address),
                         "--on-port", str(self.bouncer_port),
-                        "--tproxy-mark", str(self.mark)])
+                        "--tproxy-mark", str(self.mark), "--on-ip",
+                        str(self.bouncer_address)])
         entry = self.entryFactory()
         entry.addMatch(match)
         entry.setTarget(target)

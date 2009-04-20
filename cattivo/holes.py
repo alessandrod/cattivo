@@ -19,13 +19,10 @@ from bisect import insort_right
 import time
 
 from cattivo.log.loggable import Loggable
-from cattivo.log import loggable
 from cattivo.log.log import getFailureMessage
 from cattivo.utils import MINUTE
 
 DEFAULT_EXPIRATION = 60 * MINUTE
-
-loggable.init()
 
 class HoleError(Exception):
     pass

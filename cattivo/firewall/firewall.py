@@ -35,6 +35,12 @@ class Firewall(Loggable):
 
         return dfr
 
+    def clean(self):
+        self.holes.removeAll()
+        dfr = self.systemFirewall.clean()
+
+        return dfr
+
     def _systemFirewallInitializeCb(self, result):
         dfr = self.clientList.getClientList()
         dfr.addCallback(self._getClientListCb)

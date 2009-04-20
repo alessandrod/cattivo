@@ -50,18 +50,19 @@ class BouncerResource(Resource, Loggable):
                 (str(src_address), dest, request.uri))
         
         dfr = request.site.firewall.clientAllowed(src_address)
-        dfr.addCallback(self._clientAllowedCb, src_address[0], dest,
-                request.uri, request.site.auth_server)
+        dfr.addCallback(self._clientAllowedCb, src_address[0], dest, request)
 
         return DeferredResource(dfr)
 
-    def _clientAllowedCb(self, res, client_id, destination, path, auth_server):
+    def _clientAllowedCb(self, res, client_id, destination, request):
+        request.setHeader("Connection", "close")
+
         self.info("client_id %s allowed %s" % (client_id, res))
 
         if res:
-            return Redirect("http://%s/%s" % (destination, path))
+            return Redirect("http://%s/%s" % (destination, request.path))
         else:
-            return Redirect(auth_server)
+            return Redirect(request.site.auth_server)
 
 
 class BouncerSite(Site, Loggable):

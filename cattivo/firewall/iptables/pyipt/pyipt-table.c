@@ -24,11 +24,6 @@ typedef struct {
     struct iptc_handle *handle;
 } PyIPTTableObject;
 
-struct iptc_handle *py_ipt_table_get_handle (PyObject *table)
-{
-  return ((PyIPTTableObject *) table)->handle;
-}
-
 static int maybe_create_handle(PyIPTTableObject *self)
 {
   if (self->handle != NULL)
@@ -41,6 +36,14 @@ static int maybe_create_handle(PyIPTTableObject *self)
   }
 
   return 1;
+}
+
+
+struct iptc_handle *py_ipt_table_get_handle (PyObject *table)
+{
+  if (!maybe_create_handle ((PyIPTTableObject *) table))
+    return NULL;
+  return ((PyIPTTableObject *) table)->handle;
 }
 
 static PyObject *
