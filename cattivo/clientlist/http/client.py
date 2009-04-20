@@ -47,8 +47,5 @@ class ClientList(Loggable):
         obj = json.loads(page)
         return defer.succeed(obj)
 
-        return defer.succeed({'client_id': client_id, 'login_time': time.time(),
-                'expiration': 10 * SECOND})
-
     def getClientList(self):
         return defer.succeed([])

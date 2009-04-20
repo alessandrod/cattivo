@@ -21,7 +21,7 @@ import sys
 
 from twisted.internet import reactor, defer, task
 from twisted.python.reflect import namedAny
-from cattivo.http.bouncer import BouncerSite
+from cattivo.bouncer.http import BouncerSite
 from cattivo.log.loggable import Loggable
 from cattivo.log import loggable
 from cattivo.log.log import getFailureMessage
