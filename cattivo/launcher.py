@@ -14,20 +14,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+from ConfigParser import ConfigParser
 from optparse import OptionParser
 import os
 import sys
-try:
-    import simplejson as json
-except ImportError:
-    import json
 
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, task
 from twisted.python.reflect import namedAny
-from cattivo.firewall.firewall import Firewall
 from cattivo.http.bouncer import BouncerSite
-from cattivo.log.loggable import Loggable, stderrHandler
+from cattivo.log.loggable import Loggable
 from cattivo.log import loggable
+from cattivo.log.log import getFailureMessage
 from cattivo.log import log
 import cattivo
 
@@ -35,53 +32,79 @@ from socket import SOL_IP
 IP_TRANSPARENT = 19
 
 class Launcher(Loggable):
-    def createClientList(self):
-        config = self.config["clientlist"]
+    options = None
 
-        clientlist_type_name = config["type"]
+    def createClientList(self):
+        clientlist_type_name = cattivo.config.get("clientlist", "type")
         clientlist_type = namedAny(clientlist_type_name)
 
+        host = cattivo.config.get("clientlist", "host")
+        port = cattivo.config.getint("clientlist", "port")
+
         self.debug("creating client list")
-        self.clientList = clientlist_type(str(config["host"]), config["port"])
+        self.clientList = clientlist_type(host, port)
         dfr = self.clientList.initialize()
 
         return dfr
 
     def createClientListCb(self, result):
-        return self.createFirewall()
+        self.log("clientlist client created successfully")
+
+    def createClientListEb(self, failure):
+        self.warning("failure creating clientlist client %s" %
+                getFailureMessage(failure))
+
+        return failure
 
     def createFirewall(self):
+        from cattivo.firewall.firewall import Firewall
+        
         self.debug("creating firewall")
-        self.firewall = Firewall(self.config["bouncer"]["bind-address"],
-                self.config["bouncer"]["port"], self.clientList)
+        address = cattivo.config.get("bouncer", "bind-address")
+        port = cattivo.config.getint("bouncer", "port")
+        self.firewall = Firewall(address, port, self.clientList)
         dfr = self.firewall.initialize()
         dfr.addCallback(self.firewallInitializeCb)
-        dfr.addErrback(self.firewallInitializeEb)
 
         return dfr
 
     def firewallInitializeCb(self, result):
         reactor.addSystemEventTrigger("after", "shutdown", self.stopFirewall)
-        return self.createBouncer()
-
-    def firewallInitializeEb(self, failure):
-        self.warning("error creating firewall %s" % log.getFailureMessage(failure))
-        reactor.stop()
 
     def stopFirewall(self):
         return self.firewall.clean()
 
+    def createFirewallCb(self, result):
+        self.log("firewall created successfully")
+
+    def createFirewallEb(self, failure):
+        self.warning("failure creating firewall %s" %
+                getFailureMessage(failure))
+
+        return failure
+
     def createBouncer(self):
         self.debug("creating bouncer")
-        self.proxy_port = reactor.listenTCP(port=self.config["bouncer"]["port"],
+        self.proxy_port = reactor.listenTCP(port=cattivo.config.getint("bouncer", "port"),
                 factory=BouncerSite(self.firewall,
-                        str(self.config["authenticator"]["redirect"])),
-                        interface=str(self.config["bouncer"]["bind-address"]))
+                        cattivo.config.get("authenticator", "redirect")),
+                        interface=cattivo.config.get("bouncer", "bind-address"))
 
         # set IP_TRANSPARENT for TPROXY to work
         self.proxy_port.socket.setsockopt(SOL_IP, IP_TRANSPARENT, 1)
 
         self.info("bouncer good to go")
+    
+        return defer.succeed(None)
+
+    def createBouncerCb(self, result):
+        self.log("bouncer created successfully")
+
+    def createBouncerEb(self, failure):
+        self.warning("failure creating bouncer %s" %
+                getFailureMessage(failure))
+
+        return failure
 
     def create_option_parser(self):
         parser = OptionParser()
@@ -99,21 +122,40 @@ class Launcher(Loggable):
 
         dfr.addErrback(self.startError)
 
-    def startUnchecked(self):
-        loggable.init(self.options, self.config)
+    def initLog(self):
+        loggable.init(self.options, cattivo.config)
 
+    def startUnchecked(self):
+        loggable.init(self.options, cattivo.config)
+        dfr = task.coiterate(self.iterateStart())
+        return dfr
+
+    def iterateStart(self):
         dfr = self.createClientList()
         dfr.addCallback(self.createClientListCb)
+        dfr.addErrback(self.createClientListEb)
+        yield dfr
 
-        return dfr
+        dfr = self.createFirewall()
+        dfr.addCallback(self.createFirewallCb)
+        dfr.addErrback(self.createFirewallEb)
+        yield dfr
+
+        dfr = self.createBouncer()
+        dfr.addCallback(self.createBouncerCb)
+        dfr.addErrback(self.createBouncerEb)
+        yield dfr
 
     def startError(self, failure):
         reactor.stop()
         failure.raiseException()
 
     def loadConfig(self, config_file):
-        config = json.load(file(config_file))
-        # FIXME: do sanity checks
+        config = ConfigParser()
+        config.read(config_file)
+
+        cattivo.config = config
+
         return config
 
     def main(self):
@@ -121,7 +163,7 @@ class Launcher(Loggable):
         self.options, self.args = self.option_parser.parse_args()
 
         try:
-            self.config = cattivo.config = self.loadConfig(self.options.config_file)
+            self.loadConfig(self.options.config_file)
         except IOError, e:
             self.option_parser.error(str(e))
             return 1

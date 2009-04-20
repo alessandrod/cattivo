@@ -70,8 +70,8 @@ def init(options=None, config=None):
 
     if options is not None and options.debug:
         debug = options.debug
-    elif config is not None and config["debug"]["categories"]:
-        debug = config["debug"]["categories"]
+    elif config is not None and config.get("debug", "categories"):
+        debug = config.get("debug", "categories")
     else:
         debug = ""
 
@@ -80,8 +80,8 @@ def init(options=None, config=None):
 
     if options is not None and options.debug_file:
         debug_file = options.debug_file
-    elif config is not None and config["debug"]["file"]:
-        debug_file = config["debug"]["file"]
+    elif config is not None and config.get("debug", "file"):
+        debug_file = config.get("debug", "file")
     else:
         debug_file = ""
 

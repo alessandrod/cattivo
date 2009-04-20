@@ -16,12 +16,11 @@
 
 from twisted.trial.unittest import TestCase
 
-from tests.common import new_client_id, run_system_tests
+from tests.common import new_client_id, run_system_tests, init_tests
 from cattivo.firewall.iptables.base import IPTablesFirewallBase
 import cattivo.firewall.iptables.base
-from cattivo.log import loggable
 
-loggable.init()
+init_tests()
 
 class IPTablesError(Exception):
     pass

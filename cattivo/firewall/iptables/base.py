@@ -84,9 +84,8 @@ class IPTablesFirewallBase(object):
 
     # helper methods that can be mocked in tests
     def _createJumpInCattivoEntry(self):
-        conf = getattr(cattivo, "config", {}).get("firewall", {})
-        in_interface = conf.get("in-interface", None) or None
-        out_interface = conf.get("out-interface", None) or None
+        in_interface = cattivo.config.get("firewall", "in-interface") or None
+        out_interface = cattivo.config.get("firewall", "out-interface") or None
         entry = self.entryFactory(in_interface=in_interface,
                 out_interface=out_interface)
         target = self.targetFactory("cattivo", table=self.mangle);

@@ -16,8 +16,17 @@
 
 import os
 
+from twisted.python.util import sibpath
+
+from cattivo.launcher import Launcher
+
 mac = 0
 ip = 0
+
+def init_tests():
+    launcher = Launcher()
+    launcher.loadConfig(sibpath(__file__, "cattivo.conf"))
+    launcher.initLog()
 
 def new_client_id():
     global mac, ip
