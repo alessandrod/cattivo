@@ -77,14 +77,19 @@ class Firewall(Loggable):
         client_id = client_status['client_id']
         login_time = client_status['login_time']
         expiration = client_status['expiration']
-        time_left = expiration - (self.holes.now() - login_time)
-        hole = Hole(client_id, time_left)
-        self.holes.add(hole)
+        if expiration > 0:
+            time_left = expiration - (self.holes.now() - login_time)
+            if time_left > 0:
+                hole = Hole(client_id, time_left)
+                self.holes.add(hole)
+                return True
+
+        return False
 
     def _getClientCb(self, client_status):
-        self._addClientHole(client_status)
+        res = self._addClientHole(client_status)
 
-        return defer.succeed(True)
+        return defer.succeed(res)
 
     def _getClientEb(self, failure):
         self.warning("get client failed: %s " % getFailureMessage(failure))

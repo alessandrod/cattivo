@@ -41,25 +41,14 @@ class Launcher(Loggable):
         host = cattivo.config.get("clientlist", "host")
         port = cattivo.config.getint("clientlist", "port")
 
-        self.debug("creating client list")
         self.clientList = clientlist_type(host, port)
         dfr = self.clientList.initialize()
 
         return dfr
 
-    def createClientListCb(self, result):
-        self.log("clientlist client created successfully")
-
-    def createClientListEb(self, failure):
-        self.warning("failure creating clientlist client %s" %
-                getFailureMessage(failure))
-
-        return failure
-
     def createFirewall(self):
         from cattivo.firewall.firewall import Firewall
         
-        self.debug("creating firewall")
         address = cattivo.config.get("bouncer", "bind-address")
         port = cattivo.config.getint("bouncer", "port")
         self.firewall = Firewall(address, port, self.clientList)
@@ -74,43 +63,34 @@ class Launcher(Loggable):
     def stopFirewall(self):
         return self.firewall.clean()
 
-    def createFirewallCb(self, result):
-        self.log("firewall created successfully")
-
-    def createFirewallEb(self, failure):
-        self.warning("failure creating firewall %s" %
-                getFailureMessage(failure))
-
-        return failure
-
     def createBouncer(self):
-        self.debug("creating bouncer")
-        self.proxy_port = reactor.listenTCP(port=cattivo.config.getint("bouncer", "port"),
+        self.bouncer_port = reactor.listenTCP(port=cattivo.config.getint("bouncer", "port"),
                 factory=BouncerSite(self.firewall,
                         cattivo.config.get("authenticator", "redirect")),
                         interface=cattivo.config.get("bouncer", "bind-address"))
 
         # set IP_TRANSPARENT for TPROXY to work
-        self.proxy_port.socket.setsockopt(SOL_IP, IP_TRANSPARENT, 1)
-
-        self.info("bouncer good to go")
+        self.bouncer_port.socket.setsockopt(SOL_IP, IP_TRANSPARENT, 1)
     
         return defer.succeed(None)
 
-    def createBouncerCb(self, result):
-        self.log("bouncer created successfully")
-
-    def createBouncerEb(self, failure):
-        self.warning("failure creating bouncer %s" %
-                getFailureMessage(failure))
-
-        return failure
+    def createClientlistServer(self):
+        type_name = cattivo.config.get("clientlist-server", "type")
+        clientlist_server_type = namedAny(type_name)
+        port = cattivo.config.getint("clientlist-server", "port")
+        address = cattivo.config.get("clientlist-server", "bind-address")
+        self.clientlist_server_port = reactor.listenTCP(port=port,
+                factory=clientlist_server_type(), interface=address)
+    
+        return defer.succeed(None)
 
     def create_option_parser(self):
         parser = OptionParser()
         parser.add_option('--config-file', type='string', default="cattivo.conf")
         parser.add_option('--debug', type='string', action='append')
         parser.add_option('--debug-file', type='string')
+        parser.add_option("--clientlist-server",
+                action="store_true", default=False)
 
         return parser
 
@@ -130,21 +110,32 @@ class Launcher(Loggable):
         dfr = task.coiterate(self.iterateStart())
         return dfr
 
+    def logServiceStartCb(self, result, service):
+        self.info("%s created successfully" % service)
+
+        return result
+
+    def logServiceStartEb(self, failure, service):
+        self.warning("failure creating service %s: %s" % (service,
+                getFailureMessage(failure)))
+
+        return failure
+
+    def startServiceLogged(self, name, method, *args, **kw):
+        self.info("starting service %s" % name)
+        dfr = method(*args, **kw)
+        dfr.addCallback(self.logServiceStartCb, name)
+        dfr.addErrback(self.logServiceStartEb, name)
+
+        return dfr
+
     def iterateStart(self):
-        dfr = self.createClientList()
-        dfr.addCallback(self.createClientListCb)
-        dfr.addErrback(self.createClientListEb)
-        yield dfr
-
-        dfr = self.createFirewall()
-        dfr.addCallback(self.createFirewallCb)
-        dfr.addErrback(self.createFirewallEb)
-        yield dfr
-
-        dfr = self.createBouncer()
-        dfr.addCallback(self.createBouncerCb)
-        dfr.addErrback(self.createBouncerEb)
-        yield dfr
+        yield self.startServiceLogged("clientlist", self.createClientList)
+        yield self.startServiceLogged("firewall", self.createFirewall)
+        yield self.startServiceLogged("bouncer", self.createBouncer)
+        if self.options.clientlist_server:
+            yield self.startServiceLogged("clientlist-server",
+                    self.createClientlistServer)
 
     def startError(self, failure):
         reactor.stop()
