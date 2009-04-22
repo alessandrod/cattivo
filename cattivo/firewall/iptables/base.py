@@ -14,7 +14,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-from twisted.internet import defer
+from twisted.internet import defer, reactor
+from twisted.python.urlpath import URLPath
 
 import cattivo
 
@@ -31,26 +32,33 @@ class IPTablesFirewallBase(object):
         self.bouncer_port = bouncer_port
         self.mark = mark
         self.mangle = self.tableFactory("mangle")
-    
+
     def initialize(self):
         self.clean()
 
-        self.mangle.createChain(chain="cattivo")
+        def resolveCb(result):
+            self.mangle.createChain(chain="cattivo")
 
-        entry = self._createLocalTrafficEntry()
-        self.mangle.appendEntry(entry, chain="cattivo")
+            entry = self._createAuthenticatorEntry(result)
+            self.mangle.appendEntry(entry, chain="cattivo")
 
-        #entry = self._createMarkEntry()
-        #self.mangle.appendEntry(entry, chain="cattivo")
+            entry2 = self._createLocalTrafficEntry()
+            self.mangle.appendEntry(entry2, chain="cattivo")
 
-        entry = self._createDefaultTproxyEntry()
-        self.mangle.appendEntry(entry, chain="cattivo")
+            entry3 = self._createDefaultTproxyEntry()
+            self.mangle.appendEntry(entry3, chain="cattivo")
 
-        main_entry = self._createJumpInCattivoEntry()
-        self.mangle.appendEntry(main_entry, chain="PREROUTING")
-        self.mangle.commit()
+            main_entry = self._createJumpInCattivoEntry()
+            self.mangle.appendEntry(main_entry, chain="PREROUTING")
+            self.mangle.commit()
 
-        return defer.succeed(None)
+        authenticator = cattivo.config.get("authenticator", "host")
+        url = URLPath.fromString(authenticator)
+        address = url.netloc
+        dfr = reactor.resolve(address)
+        dfr.addCallback(resolveCb)
+
+        return dfr
 
     def clean(self):
         try:
@@ -83,6 +91,15 @@ class IPTablesFirewallBase(object):
         self.mangle.commit()
 
     # helper methods that can be mocked in tests
+    def _createAuthenticatorEntry(self, address):
+        match = self.matchFactory("tcp")
+        target = self.targetFactory("ACCEPT")
+        entry = self.entryFactory(source=address)
+        entry.addMatch(match)
+        entry.setTarget(target)
+
+        return entry
+
     def _createJumpInCattivoEntry(self):
         in_interface = cattivo.config.get("firewall", "in-interface") or None
         out_interface = cattivo.config.get("firewall", "out-interface") or None

@@ -66,7 +66,7 @@ class Launcher(Loggable):
     def createBouncer(self):
         self.bouncer_port = reactor.listenTCP(port=cattivo.config.getint("bouncer", "port"),
                 factory=BouncerSite(self.firewall,
-                        cattivo.config.get("authenticator", "redirect")),
+                        cattivo.config.get("authenticator", "host")),
                         interface=cattivo.config.get("bouncer", "bind-address"))
 
         # set IP_TRANSPARENT for TPROXY to work
