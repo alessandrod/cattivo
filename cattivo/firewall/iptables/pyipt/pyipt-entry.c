@@ -134,7 +134,7 @@ static void
 py_ipt_entry_dealloc (PyObject *obj)
 {
   PyIPTEntryObject *self = (PyIPTEntryObject *) obj;
-
+  
   if (self->source)
     free (self->source);
 

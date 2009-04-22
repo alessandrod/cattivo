@@ -31,7 +31,7 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   PyObject *table = NULL;
   int argc = 0;
   char **argv = NULL;
-  struct xtables_target *target;
+  struct xtables_target *target, *target_orig;
   int invert = 0;
   int i;
   int size;
@@ -59,13 +59,15 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
     }
   }
 
-  /* FIXME: most likely i need to memcpy target here */
-  target = xtables_find_target (name, XTF_TRY_LOAD);
-  if (target == NULL) {
+  target_orig = xtables_find_target (name, XTF_TRY_LOAD);
+  if (target_orig == NULL) {
     PyErr_SetString (PyIPTException, "can't find target");
     goto error;
   }
-  
+
+  target = (struct xtables_target *) malloc (sizeof (struct xtables_target));
+  memcpy (target, target_orig, sizeof (struct xtables_target));
+
   /* almost verbatim copy of iptables.c stuff. So much for code reuse */
   size = IPT_ALIGN(sizeof(struct ipt_entry_target))
     + target->size;
@@ -144,8 +146,10 @@ py_ipt_target_dealloc (PyObject *obj)
 {
   PyIPTTargetObject *self = (PyIPTTargetObject *) obj;
 
-  if (self->target)
+  if (self->target) {
     free (self->target->t);
+    free (self->target);
+  }
 
   self->ob_type->tp_free (obj);
 }
