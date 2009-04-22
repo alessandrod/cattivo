@@ -47,6 +47,7 @@ class IPTablesFirewallBase(object):
 
             entry3 = self._createDefaultTproxyEntry()
             self.mangle.appendEntry(entry3, chain="cattivo")
+            self.mangle.commit()
 
             main_entry = self._createJumpInCattivoEntry()
             self.mangle.appendEntry(main_entry, chain="PREROUTING")
@@ -117,24 +118,11 @@ class IPTablesFirewallBase(object):
 
         return entry
 
-    def _createMarkEntry(self):
-        tcp_match = self.matchFactory("tcp")
-        socket_match = self.matchFactory("socket")
-        target = self.targetFactory("MARK", ["--set-mark", str(self.mark)])
-        entry = self.entryFactory()
-        entry.addMatch(tcp_match)
-        entry.addMatch(socket_match)
-        entry.setTarget(target)
-
-        return entry
-
     def _createDefaultTproxyEntry(self):
         match = self.matchFactory("tcp", ["--destination-port", "80"])
         target = self.targetFactory("TPROXY",
-                ["--on-ipASD", str(self.bouncer_address),
-                        "--on-port", str(self.bouncer_port),
-                        "--tproxy-mark", str(self.mark), "--on-ip",
-                        str(self.bouncer_address)])
+                ["--on-port", str(self.bouncer_port),
+                        "--on-ip", str(self.bouncer_address)])
         entry = self.entryFactory()
         entry.addMatch(match)
         entry.setTarget(target)
