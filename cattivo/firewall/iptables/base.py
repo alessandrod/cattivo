@@ -94,7 +94,7 @@ class IPTablesFirewallBase(object):
     def _createAuthenticatorEntry(self, address):
         match = self.matchFactory("tcp")
         target = self.targetFactory("ACCEPT")
-        entry = self.entryFactory(source=address)
+        entry = self.entryFactory(destination=address)
         entry.addMatch(match)
         entry.setTarget(target)
 
