@@ -37,7 +37,7 @@ if run_system_tests():
     BaseTable = Table
 else:
     class BaseEntry(object):
-        def __init__(self, source, in_interface=None, out_interface=None):
+        def __init__(self, source=None, destination=None, in_interface=None, out_interface=None):
             pass
 
         def setTarget(self, target):
@@ -77,9 +77,10 @@ else:
             pass
 
 class TestEntry(BaseEntry):
-    def __init__(self, source=None, in_interface=None, out_interface=None):
+    def __init__(self, source=None, destination=None, in_interface=None, out_interface=None):
         BaseEntry.__init__(self, source=source)
         self.source = source
+        self.destination = destination
         self.target = None
         self.in_interface = in_interface
         self.out_interface = out_interface
@@ -171,11 +172,10 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(mangle._deleted_chains, ["cattivo"])
             self.failUnlessEqual(mangle._chains, ["cattivo"])
 
-            # two entries are created at startup
-            self.failUnlessEqual(len(mangle._entries), 3)
+            self.failUnlessEqual(len(mangle._entries), 4)
 
             # default TPROXY entry
-            entry, chain = mangle._entries[1]
+            entry, chain = mangle._entries[2]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(len(entry.matches), 1)
             match = entry.matches[0]
@@ -185,11 +185,10 @@ class TestIPTablesFirewall(TestCase):
             target = entry.target
             self.failUnlessEqual(target.name, "TPROXY")
             self.failUnlessEqual(target.arguments,
-                    ["--on-ip", "127.0.0.1", "--on-port", "8081",
-                    "--tproxy-mark", "1"])
+                    ["--on-port", "8081", "--on-ip", "127.0.0.1"])
 
             # main entry
-            entry, chain = mangle._entries[2]
+            entry, chain = mangle._entries[3]
             self.failUnlessEqual(chain, "PREROUTING")
             self.failUnlessEqual(len(entry.matches), 0)
             target = entry.target
