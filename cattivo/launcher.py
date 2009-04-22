@@ -38,10 +38,7 @@ class Launcher(Loggable):
         clientlist_type_name = cattivo.config.get("clientlist", "type")
         clientlist_type = namedAny(clientlist_type_name)
 
-        host = cattivo.config.get("clientlist", "host")
-        port = cattivo.config.getint("clientlist", "port")
-
-        self.clientList = clientlist_type(host, port)
+        self.clientList = clientlist_type()
         dfr = self.clientList.initialize()
 
         return dfr

@@ -14,6 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+from ConfigParser import NoSectionError, NoOptionError
+import time
+
 from twisted.internet import defer
 from twisted.web.client import getPage
 
@@ -25,19 +28,27 @@ except ImportError:
 from cattivo.log.loggable import Loggable
 from cattivo.log import log
 from cattivo.utils import HOUR, SECOND, MINUTE
-import time
+import cattivo
+
 
 class ClientList(Loggable):
-    def __init__(self, server, port=80):
+    default_request_pattern = "/client/%s"
+
+    def __init__(self):
         Loggable.__init__(self)
-        self.server = server
-        self.port = port
 
     def initialize(self):
         return defer.succeed(True)
 
     def getClient(self, client_id):
-        url = "%s:%d/client/%s" % (self.server, self.port, client_id[0])
+        server = cattivo.config.get("clientlist", "host")
+        try:
+            request_pattern = cattivo.config.get("clientlist", "request-pattern")
+        except (NoSectionError, NoOptionError):
+            request_pattern = self.default_request_pattern
+
+        request = request_pattern % client_id[0]
+        url =  "%s/%s" % (server, request)
         dfr = getPage(url)
         dfr.addCallback(self._downloadPageCb)
 
