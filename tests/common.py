@@ -16,6 +16,7 @@
 
 import os
 
+from twisted.trial.unittest import TestCase
 from twisted.python.util import sibpath
 
 from cattivo.launcher import Launcher
@@ -38,3 +39,10 @@ def new_client_id():
 
 def run_system_tests():
     return os.environ.get("CATTIVO_TEST_SYSTEM", "0") == "1"
+
+if run_system_tests():
+    class SystemTestCase(TestCase):
+        pass
+else:
+    class SystemTestCase(object):
+        pass
