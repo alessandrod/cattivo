@@ -16,6 +16,7 @@
 
 import os
 from ctypes import *
+from array import array
 
 from twisted.internet import fdesc
 from socket import AF_INET
@@ -26,7 +27,8 @@ nflogDll = CDLL("libnetfilter_log.so.1", use_errno=True)
 nflogFunctions = ["nflog_open", "nflog_close", "nflog_nfnlh",
         "nflog_fd", "nfnl_catch", "nflog_bind_group",
         "nflog_callback_register", "nflog_set_mode",
-        "nflog_bind_pf"]
+        "nflog_bind_pf", "nflog_get_uid", "nflog_get_gid",
+        "nflog_get_payload"]
 for functionName in nflogFunctions:
     globals()[functionName] = getattr(nflogDll, functionName)
 
@@ -38,10 +40,12 @@ for functionName in nflogFunctions:
 NFLogCallback = CFUNCTYPE(c_int, c_voidp, c_voidp, c_voidp, py_object)
 
 def nflog_callback_impl(nflog_g_handle, nfmsg, nfdata, user_data):
-    return user_data.callback(nfmsg, nfdata)
+    data = NFLogData(c_voidp(nfdata))
+    return user_data.callback(nfmsg, data)
 
 nflog_callback = NFLogCallback(nflog_callback_impl)
 
+c_uint8p = POINTER(c_uint8)
 
 def call_nf(call, *args, **kw):
     error = kw.pop("error", -1)
@@ -56,6 +60,29 @@ def call_nf(call, *args, **kw):
 class NFLogError(Exception):
     pass
 
+
+class NFLogData(object):
+    def __init__(self, data):
+        self.data = data
+
+    def getUid(self):
+        uid = c_uint32()
+        call_nf(nflog_get_uid, self.data, byref(uid))
+
+        return uid
+
+    def getGid(self):
+        gid = c_uint32()
+        call_nf(nflog_get_gid, self.data, byref(gid))
+
+        return gid
+
+    def getPayload(self):
+        buffer_p = c_uint8p()
+        buffer_len = call_nf(nflog_get_payload, self.data, byref(buffer_p))
+        buf = array("B", buffer_p[:buffer_len])
+
+        return buf
 
 class NFLog(object):
     nflog_handle = 0

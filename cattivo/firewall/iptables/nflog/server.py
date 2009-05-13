@@ -18,8 +18,8 @@ import errno
 from socket import AF_INET
 
 from twisted.internet.abstract import FileDescriptor
-from twisted.internet.main import CONNECTION_LOST, CONNECTION_DONE
-from twisted.application.service import Application, Service
+from twisted.application.internet import GenericServer
+from twisted.pair.ethernet import EthernetProtocol
 
 from cattivo.firewall.iptables.nflog.wrapper import NFLog, \
         NFULNL_COPY_PACKET
@@ -49,29 +49,53 @@ class NFLogDescriptor(FileDescriptor):
                 return CONNECTION_LOST
 
     def nflogCallback(self, nfmsg, nfdata):
-        print "LOG", nfmsg, nfdata
+        # -1 == failure
+        return 0
+
+class NFLogPort(NFLogDescriptor):
+    def __init__(self, protocol, group=0):
+        NFLogDescriptor.__init__(self, group)
+        self.protocol = protocol
+
+    def startListening(self):
+        self.startReading()
+        self.connected = 1
+        self.protocol.makeConnection(self)
+
+    def stopListening(self):
+        self.stopReading()
+
+    def connectionLost(self, reason=None):
+        NFLogDescriptor.connectionLost(reason)
+
+    def nflogCallback(self, nfmsg, nfdata):
+        buf = nfdata.getPayload()
+        self.protocol.datagramReceived(buf)
 
         return 0
 
+class NFLogFakeEthernetProtocol(EthernetProtocol):
+    def __init__(self, protocol):
+        EthernetProtocol.__init__(self)
+        self.protocol = protocol
 
-class NFLogService(Service):
-    def __init__(self, group=0):
-        # Service has no init
-        # Service.__init__(self)
-        self.nflogDescriptor = NFLogDescriptor(group)
+    def datagramReceived(self, data, partial=0):
+        source = None
+        dest = None
+        protocol = None
+        self.protocol.datagramReceived(data, partial,
+                source, dest, protocol)
 
-    def startService(self):
-        Service.startService(self)
-        self.nflogDescriptor.startReading()
 
-    def stopService(self):
-        self.nflogDescriptor.stopReading()
-        Service.stopService(self)
-        
+class NFLogServer(GenericServer):
+    def __init__(self, protocol, group=0, reactor=None):
+        GenericServer.__init__(self, reactor=reactor)
+        ethernetProtocol = NFLogFakeEthernetProtocol(protocol)
+        self.protocol = ethernetProtocol
+        self.group = group
 
-import sys
-if "twistd" in sys.argv[0]:
-    application = Application("TestNFLog")
-    import time; time.sleep(2)
-    nflogService = NFLogService(2)
-    nflogService.setServiceParent(application)
+    def _getPort(self):
+        port = NFLogPort(self.protocol, self.group)
+        port.startListening()
+
+        return port
