@@ -42,11 +42,12 @@ def nflog_callback_impl(nflog_g_handle, nfmsg, nfdata, user_data):
 
 nflog_callback = NFLogCallback(nflog_callback_impl)
 
-class NFLogWrapperError(Exception):
+
+class NFLogError(Exception):
     pass
 
 
-class NFLogWrapper(object):
+class NFLog(object):
     nflog_handle = 0
     nflog_g_handle = 0
     nfnl_handle = 0
@@ -74,7 +75,7 @@ class NFLogWrapper(object):
 
     def close(self):
         if self.nflog_handle == 0:
-            raise NFLogWrapperError()
+            raise NFLogError()
 
         ret = nflog_close(self.nflog_handle)
         if ret == -1:
@@ -89,7 +90,7 @@ class NFLogWrapper(object):
 
     def bindProtocolFamily(self, family):
         if self.nflog_handle == 0:
-            raise NFLogWrapperError()
+            raise NFLogError()
 
         ret = nflog_bind_pf(self.nflog_handle, family)
         if ret == -1:
@@ -99,7 +100,7 @@ class NFLogWrapper(object):
 
     def bindGroup(self, group):
         if self.nflog_handle == 0:
-            raise NFLogWrapperError()
+            raise NFLogError()
 
         self.nflog_g_handle = \
                 c_voidp(nflog_bind_group(self.nflog_handle, group))
@@ -118,7 +119,7 @@ class NFLogWrapper(object):
     def setCallback(self, callback):
         assert self.callback is None
         if self.nflog_g_handle == 0:
-            raise NFLogWrapperError()
+            raise NFLogError()
 
         self.callback = callback
         obj = py_object(self)
@@ -126,7 +127,7 @@ class NFLogWrapper(object):
 
     def catch(self):
         if self.nfnl_handle == 0:
-            raise NFLogWrapperError()
+            raise NFLogError()
 
         ret = nfnl_catch(self.nfnl_handle)
         if ret == -1:
@@ -137,7 +138,7 @@ class NFLogWrapper(object):
 if __name__ == "__main__":
     def nflogCallback(*args):
         import pdb; pdb.set_trace()
-    wrapper = NFLogWrapper()
+    wrapper = NFLog()
     wrapper.non_blocking = False
     wrapper.open()
     wrapper.bindProtocolFamily(AF_INET)

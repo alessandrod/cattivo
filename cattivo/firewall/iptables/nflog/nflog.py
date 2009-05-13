@@ -21,13 +21,13 @@ from twisted.internet.abstract import FileDescriptor
 from twisted.internet.main import CONNECTION_LOST, CONNECTION_DONE
 from twisted.application.service import Application, Service
 
-from cattivo.firewall.iptables.nflog.wrapper import NFLogWrapper, \
+from cattivo.firewall.iptables.nflog.wrapper import NFLog, \
         NFULNL_COPY_PACKET
 
 class NFLogDescriptor(FileDescriptor):
     def __init__(self, group, reactor=None):
         FileDescriptor.__init__(self, reactor)
-        self.wrapper = NFLogWrapper()
+        self.wrapper = NFLog()
         self.wrapper.open()
         self.wrapper.bindProtocolFamily(AF_INET)
         self.group = group

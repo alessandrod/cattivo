@@ -17,12 +17,12 @@
 from twisted.trial.unittest import TestCase
 
 from common import SystemTestCase
-from cattivo.firewall.iptables.nflog.wrapper import NFLogWrapper, \
-        NFLogWrapperError
+from cattivo.firewall.iptables.nflog.wrapper import NFLog, \
+        NFLogError
 
-class TestNFLogWrapper(SystemTestCase):
+class TestNFLog(SystemTestCase):
     def testWrapper(self):
-        wrapper = NFLogWrapper()
+        wrapper = NFLog()
 
         # open
         self.failUnlessEqual(wrapper.nflog_handle, 0)
@@ -46,10 +46,10 @@ class TestNFLogWrapper(SystemTestCase):
         self.failUnlessEqual(wrapper.nflog_g_handle, 0)
 
     def testBadState(self):
-        wrapper = NFLogWrapper()
-        self.failUnlessRaises(NFLogWrapperError, wrapper.close)
-        self.failUnlessRaises(NFLogWrapperError, wrapper.bindGroup, 42)
-        self.failUnlessRaises(NFLogWrapperError, wrapper.catch)
+        wrapper = NFLog()
+        self.failUnlessRaises(NFLogError, wrapper.close)
+        self.failUnlessRaises(NFLogError, wrapper.bindGroup, 42)
+        self.failUnlessRaises(NFLogError, wrapper.catch)
 
 
 class TestNFLogServiceTest(TestCase):
