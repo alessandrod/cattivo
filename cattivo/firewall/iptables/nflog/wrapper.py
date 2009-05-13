@@ -43,6 +43,16 @@ def nflog_callback_impl(nflog_g_handle, nfmsg, nfdata, user_data):
 nflog_callback = NFLogCallback(nflog_callback_impl)
 
 
+def call_nf(call, *args, **kw):
+    error = kw.pop("error", -1)
+    ret = call(*args, **kw)
+    if ret == error:
+        error = get_errno()
+        string = os.strerror(error)
+        raise OSError(error, string)
+
+    return ret
+
 class NFLogError(Exception):
     pass
 
@@ -56,18 +66,8 @@ class NFLog(object):
     non_blocking = True
 
     def open(self):
-        self.nflog_handle = c_voidp(nflog_open())
-        if self.nflog_handle == 0:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
-
-        self.nfnl_handle = c_voidp(nflog_nfnlh(self.nflog_handle))
-        if self.nfnl_handle == 0:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
-
+        self.nflog_handle = call_nf(nflog_open, error=0)
+        self.nfnl_handle = call_nf(nflog_nfnlh, self.nflog_handle, error=0)
         self.fd = nflog_fd(self.nflog_handle)
         if self.non_blocking:
             # set the fd non blocking so we can use nfnl_catch to do the processing
@@ -77,12 +77,7 @@ class NFLog(object):
         if self.nflog_handle == 0:
             raise NFLogError()
 
-        ret = nflog_close(self.nflog_handle)
-        if ret == -1:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
-
+        call_nf(nflog_close, self.nflog_handle)
         self.nflog_handle = 0
         self.nflog_g_handle = 0
         self.nfnl_handle = 0
@@ -92,29 +87,18 @@ class NFLog(object):
         if self.nflog_handle == 0:
             raise NFLogError()
 
-        ret = nflog_bind_pf(self.nflog_handle, family)
-        if ret == -1:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
+        call_nf(nflog_bind_pf, self.nflog_handle, family)
 
     def bindGroup(self, group):
         if self.nflog_handle == 0:
             raise NFLogError()
 
         self.nflog_g_handle = \
-                c_voidp(nflog_bind_group(self.nflog_handle, group))
-        if self.nflog_g_handle == 0:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
+                c_voidp(call_nf(nflog_bind_group,
+                        self.nflog_handle, group, error=0))
     
     def setMode(self, mode, range_):
-        ret = nflog_set_mode(self.nflog_g_handle, mode, range_)
-        if ret == -1:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
+        call_nf(nflog_set_mode, self.nflog_g_handle, mode, range_)
 
     def setCallback(self, callback):
         assert self.callback is None
@@ -129,11 +113,7 @@ class NFLog(object):
         if self.nfnl_handle == 0:
             raise NFLogError()
 
-        ret = nfnl_catch(self.nfnl_handle)
-        if ret == -1:
-            error = get_errno()
-            string = os.strerror(error)
-            raise OSError(error, string)
+        call_nf(nfnl_catch, self.nfnl_handle)
 
 if __name__ == "__main__":
     def nflogCallback(*args):
