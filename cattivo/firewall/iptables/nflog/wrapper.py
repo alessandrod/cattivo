@@ -34,7 +34,10 @@ nflogFunctions = ["nflog_open", "nflog_close", "nflog_nfnlh",
         "nflog_bind_pf", "nflog_get_uid", "nflog_get_gid",
         "nflog_get_payload"]
 for functionName in nflogFunctions:
-    globals()[functionName] = getattr(nflogDll, functionName)
+    try:
+        globals()[functionName] = getattr(nflogDll, functionName)
+    except AttributeError:
+        continue
 
 
 # nflog callback
