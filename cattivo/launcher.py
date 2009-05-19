@@ -19,6 +19,8 @@ from optparse import OptionParser
 import os
 import sys
 
+import twisted
+from twisted.python.util import sibpath
 from twisted.internet import reactor, defer, task
 from twisted.python.reflect import namedAny
 from cattivo.bouncer.http import BouncerSite
@@ -127,8 +129,22 @@ class Launcher(Loggable):
 
     def startUnchecked(self):
         loggable.init(self.options, cattivo.config)
+
+        self.ensureTwistedPair()
         dfr = task.coiterate(self.iterateStart())
         return dfr
+
+    def ensureTwistedPair(self):
+        try:
+            import twisted.pair
+        except ImportError:
+            import new
+            m = new.module("twisted.pair")
+            sys.modules["twisted.pair"] = m
+            global twisted
+            twisted.pair = m
+            m.__file__ = os.path.join(sibpath(__file__, "twisted_pair"), "__init__.pyc")
+            m.__path__ = [sibpath(__file__, "twisted_pair")]
 
     def logServiceStartCb(self, result, service):
         self.info("%s created successfully" % service)
