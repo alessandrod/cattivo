@@ -66,7 +66,7 @@ class NFLogPort(NFLogDescriptor):
         self.stopReading()
 
     def connectionLost(self, reason=None):
-        NFLogDescriptor.connectionLost(reason)
+        NFLogDescriptor.connectionLost(self, reason)
 
     def nflogCallback(self, nfmsg, nfdata):
         buf = nfdata.getPayload()
