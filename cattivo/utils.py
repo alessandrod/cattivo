@@ -14,8 +14,33 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+from urllib import unquote
+
 SECOND = 1
 MINUTE = 60 * SECOND
 HOUR = 60 * MINUTE
 DAY = 24 * HOUR
 WEEK = 7 * DAY
+
+try:
+    from urlparse import parse_qs
+except ImportError:
+    def parse_qs(qs, keep_blank_values=0, strict_parsing=0, unquote=unquote):
+        """like cgi.parse_qs, only with custom unquote function"""
+        d = {}
+        items = [s2 for s1 in qs.split("&") for s2 in s1.split(";")]
+        for item in items:
+            try:
+                k, v = item.split("=", 1)
+            except ValueError:
+                if strict_parsing:
+                    raise
+                continue
+            if v or keep_blank_values:
+                k = unquote(k.replace("+", " "))
+                v = unquote(v.replace("+", " "))
+                if k in d:
+                    d[k].append(v)
+                else:
+                    d[k] = [v]
+        return d

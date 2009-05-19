@@ -30,7 +30,7 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   PyObject *arguments = NULL;
   PyObject *table = NULL;
   int argc = 0;
-  char **argv = NULL;
+  const char **argv = NULL;
   struct xtables_target *target, *target_orig;
   int invert = 0;
   int i;
@@ -88,7 +88,7 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
   if (arguments && PySequence_Size (arguments)) { 
     /* convert arguments to argv */
     argc = PySequence_Size (arguments);
-    argv = malloc (sizeof (char *) * (argc + 1));
+    argv = (const char *) malloc (sizeof (char *) * (argc + 1));
     argv[0] = "pyipt";
     for (i = 0; i < argc; ++i) {
       PyObject *arg = PySequence_GetItem (arguments, i);
@@ -102,6 +102,7 @@ py_ipt_target_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     /* parse target specific opts */
     /* FIXME: we don't pass entry (NULL) here */
+    optind = 1;
     while ((c = getopt_long (argc+1, argv, "", target->extra_opts, NULL)) != -1) {
       switch (c) {
         case -1:

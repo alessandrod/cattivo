@@ -16,23 +16,25 @@
 
 from ConfigParser import NoSectionError, NoOptionError
 import time
+from urllib import urlencode
 from urlparse import urljoin
 
 from twisted.internet import defer
 from twisted.web.client import getPage
 
 try:
-    import simplejson as json
-except ImportError:
     import json
+except ImportError:
+    import simplejson as json
 
 from cattivo.log.loggable import Loggable
+from cattivo.log import log
 from cattivo.utils import HOUR, SECOND, MINUTE
 import cattivo
 
 
-class ClientList(Loggable):
-    default_request_pattern = "/client/%s"
+class Logger(Loggable):
+    default_request_pattern = "/log/client/%s"
 
     def __init__(self):
         Loggable.__init__(self)
@@ -40,25 +42,25 @@ class ClientList(Loggable):
     def initialize(self):
         return defer.succeed(True)
 
-    def getClient(self, client_id):
-        server = cattivo.config.get("clientlist", "host")
+    def logHTTP(self, client_id, destination, port, http_host, http_resource):
+        server = cattivo.config.get("logger", "host")
         try:
-            request_pattern = cattivo.config.get("clientlist", "request-pattern")
+            request_pattern = cattivo.config.get("logger", "request-pattern")
         except (NoSectionError, NoOptionError):
             request_pattern = self.default_request_pattern
 
         request = request_pattern % client_id[0]
         url = urljoin(server, request)
-        dfr = getPage(url)
-        dfr.addCallback(self._downloadPageCb)
 
+        json_object = {"client_id": client_id[0], "timestamp": time.time(),
+                "destination": destination, "port": port,
+                "http_host": http_host, "http_resource": http_resource}
+        json_data = json.dumps(json_object)
+        data = urlencode({"data": json_data})
+
+        return self.doRequest(url, data)
+
+    def doRequest(self, url, data):
+        headers = {"content-type": "application/x-www-form-urlencoded"}
+        dfr = getPage(url, method="POST", headers=headers, postdata=data)
         return dfr
-
-    def _downloadPageCb(self, page):
-        obj = json.loads(page)
-        # make client_id a tuple so it's hashable
-        obj["client_id"] = tuple(obj["client_id"])
-        return defer.succeed(obj)
-
-    def getClientList(self):
-        return defer.succeed([])

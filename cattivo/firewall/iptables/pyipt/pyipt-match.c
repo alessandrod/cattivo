@@ -80,6 +80,7 @@ py_ipt_match_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     /* parse match specific opts */
     /* FIXME: we don't pass entry (NULL) here */
+    optind = 1;
     while ((c = getopt_long (argc+1, argv, "", match->extra_opts, NULL)) != -1) {
       switch (c) {
         case -1:

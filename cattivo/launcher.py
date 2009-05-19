@@ -53,6 +53,17 @@ class Launcher(Loggable):
         dfr.addCallback(self.firewallInitializeCb)
 
         return dfr
+    
+    def createLogger(self):
+        from cattivo.firewall.iptables.nflog.logger import NFLogLoggerServer
+        
+        group = cattivo.config.getint("firewall", "log-group")
+        self.logServer = NFLogLoggerServer(group)
+        self.logServer.startService()
+        reactor.addSystemEventTrigger("after", "shutdown",
+                    self.logServer.stopService)
+
+        return defer.succeed(None)
 
     def firewallInitializeCb(self, result):
         reactor.addSystemEventTrigger("after", "shutdown", self.stopFirewall)
@@ -81,12 +92,24 @@ class Launcher(Loggable):
     
         return defer.succeed(None)
 
+    def createLogServer(self):
+        type_name = cattivo.config.get("logger-server", "type")
+        log_server_type = namedAny(type_name)
+        port = cattivo.config.getint("logger-server", "port")
+        address = cattivo.config.get("logger-server", "bind-address")
+        self.log_server_port = reactor.listenTCP(port=port,
+                factory=log_server_type(), interface=address)
+    
+        return defer.succeed(None)
+
     def create_option_parser(self):
         parser = OptionParser()
         parser.add_option('--config-file', type='string', default="cattivo.conf")
         parser.add_option('--debug', type='string', action='append')
         parser.add_option('--debug-file', type='string')
         parser.add_option("--clientlist-server",
+                action="store_true", default=False)
+        parser.add_option("--logger-server",
                 action="store_true", default=False)
 
         return parser
@@ -129,10 +152,15 @@ class Launcher(Loggable):
     def iterateStart(self):
         yield self.startServiceLogged("clientlist", self.createClientList)
         yield self.startServiceLogged("firewall", self.createFirewall)
+        yield self.startServiceLogged("logger", self.createLogger)
         yield self.startServiceLogged("bouncer", self.createBouncer)
         if self.options.clientlist_server:
             yield self.startServiceLogged("clientlist-server",
                     self.createClientlistServer)
+
+        if self.options.logger_server:
+            yield self.startServiceLogged("logger-server",
+                    self.createLogServer)
 
     def startError(self, failure):
         reactor.stop()

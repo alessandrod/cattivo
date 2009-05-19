@@ -28,6 +28,7 @@ extern void libxt_tcp_init ();
 extern void libxt_state_init ();
 extern void libxt_mark_init ();
 extern void libxt_socket_init ();
+extern void libxt_nflog_init ();
 
 extern PyTypeObject PyIPTMatchType;
 extern PyTypeObject PyIPTTargetType;
@@ -86,6 +87,7 @@ initpyipt()
   libxt_tproxy_init();
   libxt_mark_init();
   libxt_socket_init();
+  libxt_nflog_init();
 
   module = Py_InitModule ("pyipt", py_ipt_methods);
   if (module == NULL)

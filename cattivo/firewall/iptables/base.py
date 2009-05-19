@@ -42,15 +42,15 @@ class IPTablesFirewallBase(object):
             entry = self._createAuthenticatorEntry(result)
             self.mangle.appendEntry(entry, chain="cattivo")
 
-            entry2 = self._createLocalTrafficEntry()
-            self.mangle.appendEntry(entry2, chain="cattivo")
+            entry = self._createLocalTrafficEntry()
+            self.mangle.appendEntry(entry, chain="cattivo")
 
-            entry3 = self._createDefaultTproxyEntry()
-            self.mangle.appendEntry(entry3, chain="cattivo")
+            entry = self._createDefaultTproxyEntry()
+            self.mangle.appendEntry(entry, chain="cattivo")
             self.mangle.commit()
 
-            main_entry = self._createJumpInCattivoEntry()
-            self.mangle.appendEntry(main_entry, chain="PREROUTING")
+            entry = self._createJumpInCattivoEntry()
+            self.mangle.appendEntry(entry, chain="PREROUTING")
             self.mangle.commit()
 
         authenticator = cattivo.config.get("authenticator", "host")
@@ -83,6 +83,9 @@ class IPTablesFirewallBase(object):
 
     def addClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
+        self.mangle.insertEntry(1, entry, chain="cattivo")
+        
+        entry = self._createClientLogEntry(client_id)
         self.mangle.insertEntry(1, entry, chain="cattivo")
         self.mangle.commit()
 
@@ -137,4 +140,12 @@ class IPTablesFirewallBase(object):
         entry.setTarget(target)
 
         return entry
+    
+    def _createClientLogEntry(self, client_id):
+        match = self.matchFactory("tcp", ["--destination-port", "8080"])
+        target = self.targetFactory("NFLOG", ["--nflog-group", "2"])
+        entry = self.entryFactory(source=client_id[0])
+        entry.addMatch(match)
+        entry.setTarget(target)
 
+        return entry
