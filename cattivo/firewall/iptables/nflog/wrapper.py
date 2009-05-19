@@ -23,7 +23,11 @@ from socket import AF_INET
 
 NFULNL_COPY_PACKET = 0x02
 
-nflogDll = CDLL("libnetfilter_log.so.1", use_errno=True)
+try:
+    nflogDll = CDLL("libnetfilter_log.so.1", use_errno=True)
+except TypeError:
+    nflogDll = CDLL("libnetfilter_log.so.1")
+
 nflogFunctions = ["nflog_open", "nflog_close", "nflog_nfnlh",
         "nflog_fd", "nfnl_catch", "nflog_bind_group",
         "nflog_callback_register", "nflog_set_mode",
