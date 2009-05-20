@@ -75,8 +75,6 @@ class Firewall(Loggable):
 
     def _addClientHole(self, client_status):
         client_id = client_status['client_id']
-        if not isinstance(client_id, (tuple, list)):
-            client_id = (client_id, 0)
         login_time = client_status['login_time']
         expiration = client_status['expiration']
         if expiration > 0:

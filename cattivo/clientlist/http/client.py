@@ -57,7 +57,12 @@ class ClientList(Loggable):
     def _downloadPageCb(self, page):
         obj = json.loads(page)
         # make client_id a tuple so it's hashable
-        obj["client_id"] = tuple(obj["client_id"])
+        client_id = obj["client_id"]
+        if not isinstance(client_id, (tuple, list)):
+            client_id = (client_id, 0)
+        else:
+            client_id = tuple(client_id)
+        obj["client_id"] = client_id
         return defer.succeed(obj)
 
     def getClientList(self):
