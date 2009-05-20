@@ -64,4 +64,5 @@ class Logger(Loggable):
     def doRequest(self, url, data):
         headers = {"content-type": "application/x-www-form-urlencoded"}
         dfr = getPage(url, method="POST", headers=headers, postdata=data)
+        self.log("sending postdata: %s" % data)
         return dfr
