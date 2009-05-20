@@ -34,7 +34,7 @@ import cattivo
 
 
 class Logger(Loggable):
-    default_request_pattern = "/log/client/%s"
+    default_request_pattern = "/log/client/%(client_id)s"
 
     def __init__(self):
         Loggable.__init__(self)
@@ -49,7 +49,8 @@ class Logger(Loggable):
         except (NoSectionError, NoOptionError):
             request_pattern = self.default_request_pattern
 
-        request = request_pattern % client_id[0]
+        kwds = {"client_id": client_id[0]}
+        request = request_pattern % kwds
         url = urljoin(server, request)
 
         json_object = {"client_id": client_id[0], "timestamp": time.time(),
