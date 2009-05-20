@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-from ConfigParser import ConfigParser
+from ConfigParser import RawConfigParser
 from optparse import OptionParser
 import os
 import sys
@@ -183,7 +183,7 @@ class Launcher(Loggable):
         failure.raiseException()
 
     def loadConfig(self, config_file):
-        config = ConfigParser()
+        config = RawConfigParser()
         config.read(config_file)
 
         cattivo.config = config
