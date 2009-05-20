@@ -21,9 +21,9 @@ from cattivo.logger.http.client import Logger
 from cattivo.utils import parse_qs
 
 try:
-    import json
-except ImportError:
     import simplejson as json
+except ImportError:
+    import json
 
 class FakeLogger(Logger):
     def doRequest(self, url, data):

@@ -23,9 +23,9 @@ from twisted.internet import defer
 from twisted.web.client import getPage
 
 try:
-    import json
-except ImportError:
     import simplejson as json
+except ImportError:
+    import json
 
 from cattivo.log.loggable import Loggable
 from cattivo.log import log
