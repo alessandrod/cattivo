@@ -143,7 +143,7 @@ class IPTablesFirewallBase(object):
         return entry
     
     def _createClientLogEntry(self, client_id):
-        match = self.matchFactory("tcp", ["--destination-port", "8080"])
+        match = self.matchFactory("tcp", ["--destination-port", "80"])
         target = self.targetFactory("NFLOG", ["--nflog-group", "2"])
         entry = self.entryFactory(source=client_id[0])
         entry.addMatch(match)
