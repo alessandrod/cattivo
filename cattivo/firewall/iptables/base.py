@@ -125,7 +125,8 @@ class IPTablesFirewallBase(object):
         match = self.matchFactory("tcp", ["--destination-port", "80"])
         target = self.targetFactory("TPROXY",
                 ["--on-port", str(self.bouncer_port),
-                        "--on-ip", str(self.bouncer_address)])
+                        "--on-ip", str(self.bouncer_address),
+                        "--tproxy-mark", "1"])
         entry = self.entryFactory()
         entry.addMatch(match)
         entry.setTarget(target)
