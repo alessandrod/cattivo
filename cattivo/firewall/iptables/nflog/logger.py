@@ -49,7 +49,7 @@ class LoggedRequest(Request):
         destination = self.channel.transport.getHost()
         client_id = (source.host, source.port)
         p.nflogServer.logClient.logHTTP(client_id, destination.host,
-                destination.port, self.getHost().host, path)
+                destination.port, self.getRequestHostname().host, path)
 
 
 class LoggedChannel(HTTPChannel):
