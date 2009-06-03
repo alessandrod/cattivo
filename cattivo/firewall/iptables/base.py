@@ -84,13 +84,14 @@ class IPTablesFirewallBase(object):
     def addClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
         self.mangle.insertEntry(1, entry, chain="cattivo")
-        
         entry = self._createClientLogEntry(client_id)
         self.mangle.insertEntry(1, entry, chain="cattivo")
         self.mangle.commit()
 
     def removeClient(self, client_id):
         entry = self._createClientAcceptEntry(client_id)
+        self.mangle.deleteEntry(entry, chain="cattivo")
+        entry = self._createClientLogEntry(client_id)
         self.mangle.deleteEntry(entry, chain="cattivo")
         self.mangle.commit()
 
