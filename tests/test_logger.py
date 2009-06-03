@@ -36,14 +36,14 @@ class TestLogger(TestCase):
 
         logger.logHTTP(client_id, "1.2.3.4", 80,
                 "www.example.net", "/index.html")
-        
+
         self.failUnlessEqual(len(logger.requests), 1)
-        
+
         url, encoded_data = logger.requests[0]
         data_dict = parse_qs(encoded_data)
         data = json.loads(data_dict["data"][0])
         del data["timestamp"]
-        self.failUnlessEqual(url, "http://localhost/log/client/0")
+        self.failUnlessEqual(url, "http://localhost/log/client/" + client_id[0])
         self.failUnlessEqual(data, {"client_id": client_id[0],
                 "destination": "1.2.3.4", "port": 80,
                 "http_host": "www.example.net",

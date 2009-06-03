@@ -154,66 +154,74 @@ class TestIPTablesFirewall(TestCase):
     def setUp(self):
         self.firewall = FakeIPTablesFirewall('127.0.0.1', '8081')
 
-    def testInitialize(self):
+    def testEntries(self):
         mangle = self.firewall.mangle
 
-        def check_initialize(result):
-            # check that the main entry is removed
-            if not run_system_tests():
-                self.failUnlessEqual(len(mangle._deleted_entries), 1)
-                entry, chain = mangle._deleted_entries[0]
-                self.failUnlessEqual(entry.matches, [])
-                target = entry.target
-                self.failUnlessEqual(target.name, "cattivo")
-                self.failUnlessIdentical(target.table, mangle)
+        def carry_on(result):
+            client_id1 = new_client_id()
+
+            # clean + 2 commits
+            self.failUnlessEqual(mangle.commits, 3)
+            self.failUnlessEqual(len(mangle._entries), 4)
 
             # cattivo table must be reinitialized
             self.failUnlessEqual(mangle._flush, ["cattivo"])
             self.failUnlessEqual(mangle._deleted_chains, ["cattivo"])
             self.failUnlessEqual(mangle._chains, ["cattivo"])
 
-            self.failUnlessEqual(len(mangle._entries), 4)
+            # authenticator entry
+            entry, chain = mangle._entries[0]
+            self.failUnlessEqual(chain, "cattivo")
+            self.failUnlessEqual(entry.source, None)
+            self.failIfEqual(entry.destination, None)
+            self.failUnlessEqual(entry.in_interface, None)
+            self.failUnlessEqual(entry.out_interface, None)
+            self.failUnlessEqual(len(entry.matches), 1)
+            self.failUnlessEqual(entry.matches[0].name, "tcp")
+            self.failUnlessEqual(entry.target.name, "ACCEPT")
 
-            # default TPROXY entry
+            # local traffic entry
+            entry, chain = mangle._entries[1]
+            self.failUnlessEqual(chain, "cattivo")
+            self.failUnlessEqual(entry.source, None)
+            self.failUnlessEqual(entry.destination, None)
+            self.failUnlessEqual(entry.in_interface, "lo")
+            self.failUnlessEqual(entry.out_interface, None)
+            self.failUnlessEqual(len(entry.matches), 0)
+            self.failUnlessEqual(entry.target.name, "ACCEPT")
+
+            # default tproxy entry
             entry, chain = mangle._entries[2]
             self.failUnlessEqual(chain, "cattivo")
+            self.failUnlessEqual(entry.source, None)
+            self.failUnlessEqual(entry.destination, None)
+            self.failUnlessEqual(entry.in_interface, None)
+            self.failUnlessEqual(entry.out_interface, None)
             self.failUnlessEqual(len(entry.matches), 1)
-            match = entry.matches[0]
-            self.failUnlessEqual(match.name, "tcp")
-            self.failUnlessEqual(match.arguments,
-                    ["--destination-port", "80"])
-            target = entry.target
-            self.failUnlessEqual(target.name, "TPROXY")
-            self.failUnlessEqual(target.arguments,
-                    ["--on-port", "8081", "--on-ip", "127.0.0.1"])
+            self.failUnlessEqual(entry.matches[0].name, "tcp")
+            self.failUnlessEqual(entry.target.name, "TPROXY")
 
-            # main entry
+            # jump in cattivo entry
             entry, chain = mangle._entries[3]
             self.failUnlessEqual(chain, "PREROUTING")
+            self.failUnlessEqual(entry.source, None)
+            self.failUnlessEqual(entry.in_interface, None)
+            self.failUnlessEqual(entry.out_interface, None)
             self.failUnlessEqual(len(entry.matches), 0)
-            target = entry.target
-            self.failUnlessEqual(target.name, "cattivo")
-            self.failUnlessEqual(target.table, mangle)
+            self.failUnlessEqual(entry.target.name, "cattivo")
 
-            self.failUnlessEqual(mangle.commits, 2)
-
-        self.failUnlessEqual(mangle.commits, 0)
-
-        dfr = self.firewall.initialize()
-        dfr.addCallback(check_initialize)
-
-        return dfr
-
-    def testAddRemoveClient(self):
-        mangle = self.firewall.mangle
-
-        def carry_on(result):
-            client_id1 = new_client_id()
-
-            self.failUnlessEqual(mangle.commits, 2)
             self.firewall.addClient(client_id1)
-            self.failUnlessEqual(mangle.commits, 3)
-            entry, chain = mangle._entries[1]
+            self.failUnlessEqual(mangle.commits, 4)
+            self.failUnlessEqual(len(mangle._entries), 6)
+
+            entry, chain = mangle._entries[2]
+            self.failUnlessEqual(chain, "cattivo")
+            self.failUnlessEqual(entry.source, client_id1[0])
+            self.failUnlessEqual(entry.target.name, "NFLOG")
+            self.failUnlessEqual(len(entry.matches), 1)
+            self.failUnlessEqual(entry.matches[0].name, "tcp")
+
+            entry, chain = mangle._entries[3]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(entry.source, client_id1[0])
             self.failUnlessEqual(entry.target.name, "ACCEPT")
@@ -221,7 +229,15 @@ class TestIPTablesFirewall(TestCase):
             self.failUnlessEqual(entry.matches[0].name, "tcp")
 
             self.firewall.removeClient(client_id1)
-            self.failUnlessEqual(mangle.commits, 4)
+            self.failUnlessEqual(mangle.commits, 5)
+
+            entry, chain = mangle._deleted_entries[-2]
+            self.failUnlessEqual(chain, "cattivo")
+            self.failUnlessEqual(entry.source, client_id1[0])
+            self.failUnlessEqual(entry.target.name, "NFLOG")
+            self.failUnlessEqual(len(entry.matches), 1)
+            self.failUnlessEqual(entry.matches[0].name, "tcp")
+
             entry, chain = mangle._deleted_entries[-1]
             self.failUnlessEqual(chain, "cattivo")
             self.failUnlessEqual(entry.source, client_id1[0])
