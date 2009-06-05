@@ -15,7 +15,6 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 from twisted.web import http
-from twisted.web.resource import NoResource
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.web.guard import BasicCredentialFactory, HTTPAuthSessionWrapper
@@ -25,6 +24,47 @@ from twisted.cred.checkers import FilePasswordDB
 
 import cattivo
 from cattivo.log.loggable import Loggable
+
+class ErrorPage(Resource):
+    template = """
+<html>
+  <head><title>%(code)s - %(brief)s</title></head>
+  <body>
+    <h1>%(brief)s</h1>
+    <p>%(detail)s</p>
+  </body>
+</html>
+"""
+
+    def __init__(self, status, brief, detail):
+        Resource.__init__(self)
+        self.code = status
+        self.brief = brief
+        self.detail = detail
+
+
+    def render(self, request):
+        request.setResponseCode(self.code)
+        request.setHeader("content-type", "text/html")
+        return self.template % dict(
+            code=self.code,
+            brief=self.brief,
+            detail=self.detail)
+
+
+    def getChild(self, chnam, request):
+        return self
+
+class NoResource(ErrorPage):
+    """
+    L{NoResource} is a specialization of L{ErrorPage} which returns the HTTP
+    response code I{NOT FOUND}.
+    """
+    def __init__(self, message="Sorry. No luck finding that resource."):
+        ErrorPage.__init__(self, http.NOT_FOUND,
+                           "No Such Resource",
+                           message)
+
 
 class ResourceRemoved(Resource):
     template = """
