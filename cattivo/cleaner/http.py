@@ -15,7 +15,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 from twisted.web import http
-from twisted.web.resource import ErrorPage, NoResource
+from twisted.web.resource import NoResource
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.web.guard import BasicCredentialFactory, HTTPAuthSessionWrapper
@@ -25,6 +25,25 @@ from twisted.cred.checkers import FilePasswordDB
 
 import cattivo
 from cattivo.log.loggable import Loggable
+
+class ResourceRemoved(Resource):
+    template = """
+<html>
+  <head><title>Client removed</title></head>
+  <body>
+    <h1>Client removed</h1>
+  </body>
+</html>
+"""
+
+    def __init__(self):
+        Resource.__init__(self)
+        self.code = http.OK
+
+    def render(self, request):
+        request.setResponseCode(self.code)
+        request.setHeader("content-type", "text/html")
+        return self.template
 
 class CleanerRealm(object):
     def requestAvatar(self, avatarId, mind, *interfaces):
