@@ -73,6 +73,14 @@ class Firewall(Loggable):
 
         return dfr
 
+    def removeClient(self, client_id):
+        try:
+            self.holes.remove(client_id)
+        except HoleError:
+            return False
+
+        return True
+
     def _addClientHole(self, client_status):
         client_id = client_status['client_id']
         login_time = client_status['login_time']

@@ -27,7 +27,6 @@ from cattivo.bouncer.http import BouncerSite
 from cattivo.log.loggable import Loggable
 from cattivo.log import loggable
 from cattivo.log.log import getFailureMessage
-from cattivo.log import log
 import cattivo
 
 from socket import SOL_IP
@@ -47,7 +46,7 @@ class Launcher(Loggable):
 
     def createFirewall(self):
         from cattivo.firewall.firewall import Firewall
-        
+
         address = cattivo.config.get("bouncer", "bind-address")
         port = cattivo.config.getint("bouncer", "port")
         self.firewall = Firewall(address, port, self.clientList)
@@ -55,10 +54,10 @@ class Launcher(Loggable):
         dfr.addCallback(self.firewallInitializeCb)
 
         return dfr
-    
+
     def createLogger(self):
         from cattivo.firewall.iptables.nflog.logger import NFLogLoggerServer
-        
+
         group = cattivo.config.getint("firewall", "log-group")
         self.logServer = NFLogLoggerServer(group)
         self.logServer.startService()
@@ -81,7 +80,17 @@ class Launcher(Loggable):
 
         # set IP_TRANSPARENT for TPROXY to work
         self.bouncer_port.socket.setsockopt(SOL_IP, IP_TRANSPARENT, 1)
-    
+
+        return defer.succeed(None)
+
+    def createCleaner(self):
+        type_name = cattivo.config.get("cleaner", "type")
+        cleaner_server_type = namedAny(type_name)
+        port = cattivo.config.getint("cleaner", "port")
+        address = cattivo.config.get("cleaner", "bind-address")
+        self.cleaner_server_port = reactor.listenTCP(port=port,
+                factory=cleaner_server_type(self.firewall), interface=address)
+
         return defer.succeed(None)
 
     def createClientlistServer(self):
@@ -91,7 +100,7 @@ class Launcher(Loggable):
         address = cattivo.config.get("clientlist-server", "bind-address")
         self.clientlist_server_port = reactor.listenTCP(port=port,
                 factory=clientlist_server_type(), interface=address)
-    
+
         return defer.succeed(None)
 
     def createLogServer(self):
@@ -101,7 +110,7 @@ class Launcher(Loggable):
         address = cattivo.config.get("logger-server", "bind-address")
         self.log_server_port = reactor.listenTCP(port=port,
                 factory=log_server_type(), interface=address)
-    
+
         return defer.succeed(None)
 
     def create_option_parser(self):
@@ -170,6 +179,7 @@ class Launcher(Loggable):
         yield self.startServiceLogged("firewall", self.createFirewall)
         yield self.startServiceLogged("logger", self.createLogger)
         yield self.startServiceLogged("bouncer", self.createBouncer)
+        yield self.startServiceLogged("cleaner", self.createCleaner)
         if self.options.clientlist_server:
             yield self.startServiceLogged("clientlist-server",
                     self.createClientlistServer)
