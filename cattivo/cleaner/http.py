@@ -59,7 +59,7 @@ class RemoveResource(Resource):
         client_id = (path, 0)
         if request.site.firewall.removeClient(client_id):
             # not really an error
-            return ErrorPage(http.OK, "", "")
+            return ResourceRemoved()
 
         return NoResource()
 
