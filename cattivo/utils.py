@@ -14,6 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+import ctypes
+import ctypes.util
+import sys
 from urllib import unquote
 
 SECOND = 1
@@ -44,3 +47,55 @@ except ImportError:
                 else:
                     d[k] = [v]
         return d
+
+def _get_libc_name():
+    if sys.platform == 'win32':
+        # Parses sys.version and deduces the version of the compiler
+        import distutils.msvccompiler
+        version = distutils.msvccompiler.get_build_version()
+        if version is None:
+            # This logic works with official builds of Python.
+            if sys.version_info < (2, 4):
+                clibname = 'msvcrt'
+            else:
+                clibname = 'msvcr71'
+        else:
+            if version <= 6:
+                clibname = 'msvcrt'
+            else:
+                clibname = 'msvcr%d' % (version * 10)
+
+        # If python was built with in debug mode
+        import imp
+        if imp.get_suffixes()[0][0] == '_d.pyd':
+            clibname += 'd'
+
+        return clibname+'.dll'
+    else:
+        return ctypes.util.find_library('c')
+
+def _somehow_get_errno(standard_c_lib):
+    # Python 2.5 or older
+    if sys.platform == 'win32':
+        standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib._errno()
+
+    elif sys.platform in ('linux2', 'freebsd6'):
+        standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib.__errno_location()
+
+    elif sys.platform in ('darwin', 'freebsd7'):
+        standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
+        def _where_is_errno():
+            return standard_c_lib.__error()
+
+    return lambda: _where_is_errno().contents.value
+
+if hasattr(ctypes, "get_errno"):
+    get_errno = ctypes.get_errno
+else:
+    _libc_name = _get_libc_name()
+    _standard_c_lib = ctypes.cdll.LoadLibrary(_libc_name)
+    get_errno = _somehow_get_errno(_standard_c_lib)

@@ -18,7 +18,7 @@ from twisted.trial.unittest import TestCase
 
 from common import SystemTestCase
 from cattivo.firewall.iptables.nflog.wrapper import NFLog, \
-        NFLogError
+        NFLogError, call_nf
 
 class TestNFLog(SystemTestCase):
     def testWrapper(self):
@@ -51,6 +51,10 @@ class TestNFLog(SystemTestCase):
         self.failUnlessRaises(NFLogError, wrapper.bindGroup, 42)
         self.failUnlessRaises(NFLogError, wrapper.catch)
 
-
-class TestNFLogServiceTest(TestCase):
-    pass
+    def testCallNfErrno(self):
+        try:
+            call_nf(lambda: -1)
+        except OSError, e:
+            self.failUnlessEqual(e.errno, 0)
+        else:
+            self.fail("this shouldn't be reached")

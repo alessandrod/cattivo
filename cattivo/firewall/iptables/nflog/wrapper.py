@@ -16,6 +16,7 @@
 
 import os
 from ctypes import *
+from cattivo.utils import get_errno
 from array import array
 
 from twisted.internet import fdesc
